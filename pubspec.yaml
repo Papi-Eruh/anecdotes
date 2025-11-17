@@ -1,0 +1,27 @@
+name: anecdotes
+description: A Flutter package that provides widgets for telling stories (or anecdotes) with images, animations, music, lyrics, subtitles, etc 
+version: 0.1.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+  flutter: ^3.35.0
+
+dependencies:
+  collection: ^1.19.1
+  heart:
+    path: ../heart
+  heart_flutter:
+    path: ../heart_flutter
+  flutter:
+    sdk: flutter
+  maestro:
+    path: ../maestro
+  rxdart: ^0.28.0
+  wakelock_plus: ^1.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  very_good_analysis: ^10.0.0
