@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:anecdotes/anecdotes.dart';
 import 'package:anecdotes/src/widgets/anecdote_widget_impl.dart';
-import 'package:heart/heart.dart' hide Anecdote;
 import 'package:flutter/material.dart';
+import 'package:heart/heart.dart' hide Anecdote;
 import 'package:maestro/maestro.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -198,6 +199,7 @@ class AnecdoteWidget extends StatefulWidget {
     this.isInteractive = true,
     this.isWakelockedManaged = true,
     this.isCaptionsVisible = true,
+    this.indexMeasureStart = 0,
     AncMusicBehavior? musicBehavior,
   }) : musicBehavior = musicBehavior ?? AncMusicBehavior.scoped;
 
@@ -252,6 +254,10 @@ class AnecdoteWidget extends StatefulWidget {
   /// If true, show the captions.
   final bool isCaptionsVisible;
 
+  /// The index of [Anecdote.measures] we'll start with.
+  /// Default to 0
+  final int indexMeasureStart;
+
   @override
   State<AnecdoteWidget> createState() => _AnecdoteWidgetState();
 }
@@ -260,7 +266,13 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     with WidgetsBindingObserver {
   late final _ancStateSubject = BehaviorSubject<AncState>.seeded(AncState.init);
   late final _displayIndicesSubject = BehaviorSubject<List<int>>.seeded(
-    List.generate(_measures.length, (i) => i).reversed.toList(),
+    List.generate(
+      _measures.length,
+      (i) {
+        return (widget.indexMeasureStart - i + _measures.length) %
+            _measures.length;
+      },
+    ),
   );
 
   late final List<MeasureWidgetController> _measureControllers = List.generate(
@@ -297,7 +309,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     if (!mounted) return;
     await _loadMusic();
     _ancStateSubject.add(AncState.playing);
-    _measureControllers.first.start();
+    _measureControllers[widget.indexMeasureStart].start();
     _isStarted = true;
   }
 
