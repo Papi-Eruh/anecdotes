@@ -269,7 +269,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     List.generate(
       _measures.length,
       (i) {
-        return (widget.indexMeasureStart - i + _measures.length) %
+        return (_indexMeasureStart - i - 1 + _measures.length) %
             _measures.length;
       },
     ),
@@ -304,12 +304,14 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
 
   bool get _isWakelockedManaged => widget.isWakelockedManaged;
 
+  int get _indexMeasureStart => widget.indexMeasureStart;
+
   Future<void> _start() async {
     if (_isStarted) throw Exception('The anecdote is already started.');
     if (!mounted) return;
     await _loadMusic();
     _ancStateSubject.add(AncState.playing);
-    _measureControllers[widget.indexMeasureStart].start();
+    _measureControllers[_indexMeasureStart].start();
     _isStarted = true;
   }
 
@@ -322,11 +324,12 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
       return widget.onFinished?.call();
     }
     if (!mounted) return;
-    _displayIndicesSubject.add([
+    final nextDisplayIndices = [
       indexLastOrder,
       ..._displayOrderIndices.take(indicesCount - 1),
-    ]);
-    _measureControllers[_displayOrderIndices.last].start();
+    ];
+    _displayIndicesSubject.add(nextDisplayIndices);
+    _measureControllers[nextDisplayIndices.last].start();
   }
 
   Future<Duration>? _trackDurationFuture(int index) {
@@ -401,7 +404,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
               ...displayedIndices.map((i) {
                 final measure = _measures[i];
                 final onReady = ifThen(
-                  i: i == 0 && !_isStarted,
+                  i: i == _indexMeasureStart && !_isStarted,
                   t: widget.onReady.chain(
                     ifThen(i: _controller == null, t: _start),
                   ),
