@@ -122,7 +122,6 @@ class _MeasureDecoratorWidgetState extends State<MeasureDecoratorWidget> {
     unawaited(_voicePlayer?.dispose());
     unawaited(_isPausedSubscription?.cancel());
     unawaited(_captionsStreamCtrl?.close());
-    _controller.clear();
     super.dispose();
   }
 

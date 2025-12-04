@@ -83,9 +83,6 @@ abstract final class MeasureWidgetController {
 
   /// Start measure
   void start();
-
-  /// Clear onStart callback
-  void clear();
 }
 
 /// Basic implementation of [MeasureWidgetController]
@@ -269,7 +266,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   /// Current index subject
   late final _cIndexSubject = BehaviorSubject<int>.seeded(_indexMeasureStart);
 
-  late final List<MeasureWidgetController> _measureControllers = List.generate(
+  late List<MeasureWidgetController> _measureControllers = List.generate(
     _measureCount,
     (_) => MeasureWidgetControllerImpl(),
   );
@@ -317,6 +314,8 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     if (!mounted) return;
     _cIndexSubject.add(nextIndex);
     _measureControllers[nextRealIndex].start();
+    _measureControllers[(nextRealIndex + 1) % _measureCount] =
+        MeasureWidgetControllerImpl();
   }
 
   Future<Duration>? _trackDurationFuture(int index) {
@@ -392,11 +391,11 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
           ];
         }),
         builder: (context, snapshot) {
-          final displayedIndices = snapshot.data ?? [];
+          final indexTurnList = snapshot.data ?? [];
           return Stack(
             children: [
-              ...displayedIndices.map((index) {
-                final (i, turn) = index;
+              ...indexTurnList.map((tuple) {
+                final (i, turn) = tuple;
                 final measure = _measures[i];
                 final onReady = ifThen(
                   i: i == _indexMeasureStart && !_isStarted,
@@ -405,12 +404,14 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                   ),
                 );
                 final isMeasurePausedStream = _cIndexSubject
-                    .map((event) => event == i)
+                    .map((event) {
+                      //todo see why it goes inside like 5 times
+                      return (event % _measureCount) == i;
+                    })
                     .distinct()
                     .whenTrueSwitchTo(_isAncPausedStream);
                 return MeasureDecoratorWidget(
-                  // key: ValueKey(measure.id),
-                  key: ValueKey('${measure.id}_$turn'),
+                  key: ValueKey('${i}_$turn'),
                   measure: measure,
                   onReady: onReady,
                   onFinished: _goNextMeasure,
