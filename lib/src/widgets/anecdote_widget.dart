@@ -265,15 +265,9 @@ class AnecdoteWidget extends StatefulWidget {
 class _AnecdoteWidgetState extends State<AnecdoteWidget>
     with WidgetsBindingObserver {
   late final _ancStateSubject = BehaviorSubject<AncState>.seeded(AncState.init);
-  late final _displayIndicesSubject = BehaviorSubject<List<int>>.seeded(
-    List.generate(
-      _measures.length,
-      (i) {
-        return (_indexMeasureStart - i - 1 + _measures.length) %
-            _measures.length;
-      },
-    ),
-  );
+
+  /// Current index subject
+  late final _cIndexSubject = BehaviorSubject<int>.seeded(_indexMeasureStart);
 
   late final List<MeasureWidgetController> _measureControllers = List.generate(
     _measureCount,
@@ -300,7 +294,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
 
   AnecdoteWidgetController? get _controller => widget.controller;
 
-  List<int> get _displayOrderIndices => _displayIndicesSubject.value;
+  int get _cIndex => _cIndexSubject.value;
 
   bool get _isWakelockedManaged => widget.isWakelockedManaged;
 
@@ -316,20 +310,17 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   }
 
   void _goNextMeasure() {
-    final indexLastOrder = _displayOrderIndices.last;
-    final indicesCount = _displayOrderIndices.length;
-    final isLastMeasure = indexLastOrder == indicesCount - 1;
-    if (isLastMeasure && !widget.loop) {
+    final nextIndex = _cIndex + 1;
+    final nextRealIndex = nextIndex % _measureCount;
+    print(widget.loop);
+    if (nextRealIndex == 0 && !widget.loop) {
       _ancStateSubject.add(AncState.finished);
       return widget.onFinished?.call();
     }
     if (!mounted) return;
-    final nextDisplayIndices = [
-      indexLastOrder,
-      ..._displayOrderIndices.take(indicesCount - 1),
-    ];
-    _displayIndicesSubject.add(nextDisplayIndices);
-    _measureControllers[nextDisplayIndices.last].start();
+    _cIndexSubject.add(nextIndex);
+    print(nextRealIndex);
+    _measureControllers[nextRealIndex].start();
   }
 
   Future<Duration>? _trackDurationFuture(int index) {
@@ -396,12 +387,21 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
         t: () => _ancStateSubject.add(_ancStateSubject.value.next),
       ),
       child: StreamBuilder(
-        stream: _displayIndicesSubject.map((event) => event.takeLast(2)),
+        stream: _cIndexSubject.map((index) {
+          final current = (index % _measureCount, index ~/ _measureCount);
+          return [
+            if (_measureCount > 1)
+              ((index + 1) % _measureCount, (index + 1) ~/ _measureCount),
+            current,
+          ];
+        }),
         builder: (context, snapshot) {
           final displayedIndices = snapshot.data ?? [];
           return Stack(
             children: [
-              ...displayedIndices.map((i) {
+              ...displayedIndices.map((index) {
+                final (i, turn) = index;
+                print('i: $i, turn: $turn');
                 final measure = _measures[i];
                 final onReady = ifThen(
                   i: i == _indexMeasureStart && !_isStarted,
@@ -409,12 +409,13 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                     ifThen(i: _controller == null, t: _start),
                   ),
                 );
-                final isMeasurePausedStream = _displayIndicesSubject
-                    .map((event) => event.last == i)
+                final isMeasurePausedStream = _cIndexSubject
+                    .map((event) => event == i)
                     .distinct()
                     .whenTrueSwitchTo(_isAncPausedStream);
                 return MeasureDecoratorWidget(
-                  key: ValueKey(measure.id),
+                  // key: ValueKey(measure.id),
+                  key: ValueKey('${measure.id}_$turn'),
                   measure: measure,
                   onReady: onReady,
                   onFinished: _goNextMeasure,
