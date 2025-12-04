@@ -294,8 +294,6 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
 
   AnecdoteWidgetController? get _controller => widget.controller;
 
-  int get _cIndex => _cIndexSubject.value;
-
   bool get _isWakelockedManaged => widget.isWakelockedManaged;
 
   int get _indexMeasureStart => widget.indexMeasureStart;
@@ -310,16 +308,14 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   }
 
   void _goNextMeasure() {
-    final nextIndex = _cIndex + 1;
+    final nextIndex = _cIndexSubject.value + 1;
     final nextRealIndex = nextIndex % _measureCount;
-    print(widget.loop);
     if (nextRealIndex == 0 && !widget.loop) {
       _ancStateSubject.add(AncState.finished);
       return widget.onFinished?.call();
     }
     if (!mounted) return;
     _cIndexSubject.add(nextIndex);
-    print(nextRealIndex);
     _measureControllers[nextRealIndex].start();
   }
 
@@ -401,7 +397,6 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
             children: [
               ...displayedIndices.map((index) {
                 final (i, turn) = index;
-                print('i: $i, turn: $turn');
                 final measure = _measures[i];
                 final onReady = ifThen(
                   i: i == _indexMeasureStart && !_isStarted,
