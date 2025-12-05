@@ -379,11 +379,11 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
       child: StreamBuilder(
         stream: _cIndexSubject.map((index) {
           final current = (index % _measureCount, index ~/ _measureCount);
-          return [
-            if (_measureCount > 1)
-              ((index + 1) % _measureCount, (index + 1) ~/ _measureCount),
-            current,
-          ];
+          final next = (
+            (index + 1) % _measureCount,
+            (index + 1) ~/ _measureCount,
+          );
+          return [next, current];
         }),
         builder: (context, snapshot) {
           final indexTurnList = snapshot.data ?? [];
@@ -393,16 +393,13 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                 final (i, turn) = tuple;
                 final measure = _measures[i];
                 final onReady = ifThen(
-                  i: i == _indexMeasureStart && !_isStarted,
+                  i: i == _indexMeasureStart && turn == 0 && !_isStarted,
                   t: widget.onReady.chain(
                     ifThen(i: _controller == null, t: _start),
                   ),
                 );
                 final isMeasurePausedStream = _cIndexSubject
-                    .map((event) {
-                      //todo see why it goes inside like 5 times
-                      return (event % _measureCount) == i;
-                    })
+                    .map((event) => event == (i + turn * _measureCount))
                     .distinct()
                     .whenTrueSwitchTo(_isAncPausedStream);
                 return MeasureDecoratorWidget(
