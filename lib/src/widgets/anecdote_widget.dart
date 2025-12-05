@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:anecdotes/anecdotes.dart';
 import 'package:anecdotes/src/widgets/anecdote_widget_impl.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:heart/heart.dart' hide Anecdote;
 import 'package:maestro/maestro.dart';
@@ -96,11 +97,6 @@ final class MeasureWidgetControllerImpl implements MeasureWidgetController {
   @override
   void addOnStart(VoidCallback? callback) {
     _onStart = _onStart.chain(callback);
-  }
-
-  @override
-  void clear() {
-    _onStart = null;
   }
 }
 
@@ -263,13 +259,13 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     with WidgetsBindingObserver {
   late final _ancStateSubject = BehaviorSubject<AncState>.seeded(AncState.init);
 
-  /// Current index subject
+  /// Current index
   late final _cIndexSubject = BehaviorSubject<int>.seeded(_indexMeasureStart);
 
-  late List<MeasureWidgetController> _measureControllers = List.generate(
-    _measureCount,
-    (_) => MeasureWidgetControllerImpl(),
-  );
+  final _measureControllers = [
+    MeasureWidgetControllerImpl(),
+    MeasureWidgetControllerImpl(),
+  ];
 
   final _musicReadyCompleter = Completer<void>();
 
@@ -300,7 +296,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     if (!mounted) return;
     await _loadMusic();
     _ancStateSubject.add(AncState.playing);
-    _measureControllers[_indexMeasureStart].start();
+    _measureControllers.last.start();
     _isStarted = true;
   }
 
@@ -313,9 +309,8 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     }
     if (!mounted) return;
     _cIndexSubject.add(nextIndex);
-    _measureControllers[nextRealIndex].start();
-    _measureControllers[(nextRealIndex + 1) % _measureCount] =
-        MeasureWidgetControllerImpl();
+    _measureControllers[1] = _measureControllers[0]..start();
+    _measureControllers[0] = MeasureWidgetControllerImpl();
   }
 
   Future<Duration>? _trackDurationFuture(int index) {
@@ -394,7 +389,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
           final indexTurnList = snapshot.data ?? [];
           return Stack(
             children: [
-              ...indexTurnList.map((tuple) {
+              ...indexTurnList.mapIndexed((lIndex, tuple) {
                 final (i, turn) = tuple;
                 final measure = _measures[i];
                 final onReady = ifThen(
@@ -415,7 +410,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                   measure: measure,
                   onReady: onReady,
                   onFinished: _goNextMeasure,
-                  controller: _measureControllers[i],
+                  controller: _measureControllers[lIndex],
                   measureMusicCompletedStream: _musicPlayer?.currentIndexStream
                       ?.pairwise()
                       .where((pair) => pair[0] == i && pair[1] != i),
