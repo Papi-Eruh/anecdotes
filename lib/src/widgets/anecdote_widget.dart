@@ -318,6 +318,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     _measureControllers[0] = MeasureWidgetControllerImpl();
   }
 
+  //todo remove
   Future<Duration>? _trackDurationFuture(int index) {
     if (_musicPlayer == null) return null;
     return _musicReadyCompleter.future.then(
@@ -329,9 +330,15 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     final musicSource = widget.anecdote.musicSource;
     if (musicSource == null) return;
     if (_behavior.isPushed) {
-      await _musicPlayer?.pushAudioSource(musicSource);
+      await _musicPlayer?.pushAudioSource(
+        musicSource,
+        initialIndex: _indexMeasureStart,
+      );
     } else {
-      await _musicPlayer?.replaceAudioSource(musicSource);
+      await _musicPlayer?.replaceAudioSource(
+        musicSource,
+        initialIndex: _indexMeasureStart,
+      );
     }
     _musicReadyCompleter.complete();
   }
