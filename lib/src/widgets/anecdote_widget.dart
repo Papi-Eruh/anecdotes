@@ -262,6 +262,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   /// Current index
   late final _cIndexSubject = BehaviorSubject<int>.seeded(_indexMeasureStart);
 
+  /// [0] for next, [1] for current
   final _measureControllers = [
     MeasureWidgetControllerImpl(),
     MeasureWidgetControllerImpl(),
@@ -303,9 +304,13 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   void _goNextMeasure() {
     final nextIndex = _cIndexSubject.value + 1;
     final nextRealIndex = nextIndex % _measureCount;
-    if (nextRealIndex == 0 && !widget.loop) {
-      _ancStateSubject.add(AncState.finished);
-      return widget.onFinished?.call();
+    final isAncFinished = nextRealIndex == 0;
+    if (isAncFinished) {
+      unawaited(_musicPlayer?.restart());
+      if (!widget.loop) {
+        _ancStateSubject.add(AncState.finished);
+        return widget.onFinished?.call();
+      }
     }
     if (!mounted) return;
     _cIndexSubject.add(nextIndex);
@@ -355,6 +360,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     if (_behavior.isScoped) unawaited(_musicPlayer?.pop());
     unawaited(_ancStateSubject.close());
     unawaited(_ancStateSubscription?.cancel());
+    unawaited(_cIndexSubject.close());
     super.dispose();
   }
 
@@ -378,10 +384,16 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
       ),
       child: StreamBuilder(
         stream: _cIndexSubject.map((index) {
-          final current = (index % _measureCount, index ~/ _measureCount);
+          final current = (
+            index % _measureCount,
+            index ~/ _measureCount,
+            index,
+          );
+          final incrIndex = index + 1;
           final next = (
-            (index + 1) % _measureCount,
-            (index + 1) ~/ _measureCount,
+            incrIndex % _measureCount,
+            incrIndex ~/ _measureCount,
+            incrIndex,
           );
           return [next, current];
         }),
@@ -389,34 +401,37 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
           final indexTurnList = snapshot.data ?? [];
           return Stack(
             children: [
-              ...indexTurnList.mapIndexed((lIndex, tuple) {
-                final (i, turn) = tuple;
-                final measure = _measures[i];
+              ...indexTurnList.mapIndexed((controllerIndex, tuple) {
+                final (measureIndex, turn, index) = tuple;
+                final measure = _measures[measureIndex];
                 final onReady = ifThen(
-                  i: i == _indexMeasureStart && turn == 0 && !_isStarted,
+                  i: index == _indexMeasureStart && !_isStarted,
                   t: widget.onReady.chain(
                     ifThen(i: _controller == null, t: _start),
                   ),
                 );
                 final isMeasurePausedStream = _cIndexSubject
-                    .map((event) => event == (i + turn * _measureCount))
+                    .map((event) => event == index)
                     .distinct()
                     .whenTrueSwitchTo(_isAncPausedStream);
                 return MeasureDecoratorWidget(
-                  key: ValueKey('${i}_$turn'),
+                  key: ValueKey('${measureIndex}_$turn'),
                   measure: measure,
                   onReady: onReady,
                   onFinished: _goNextMeasure,
-                  controller: _measureControllers[lIndex],
+                  controller: _measureControllers[controllerIndex],
                   measureMusicCompletedStream: _musicPlayer?.currentIndexStream
                       ?.pairwise()
-                      .where((pair) => pair[0] == i && pair[1] != i),
+                      .where(
+                        (pair) =>
+                            pair[0] == measureIndex && pair[1] != measureIndex,
+                      ),
                   registry: registry,
                   captionsWidgetBuilder: widget.captionsWidgetBuilder,
                   voicePlayerBuilder: widget.voicePlayerBuilder,
                   isPausedStream: isMeasurePausedStream,
                   captionsAdapter: widget.captionsAdapter,
-                  trackDurationFuture: _trackDurationFuture(i),
+                  trackDurationFuture: _trackDurationFuture(measureIndex),
                   isCaptionsVisible: widget.isCaptionsVisible,
                 );
               }),
