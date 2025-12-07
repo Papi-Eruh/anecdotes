@@ -424,9 +424,13 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                   voicePlayerBuilder: widget.voicePlayerBuilder,
                   isPausedStream: isMeasurePausedStream,
                   captionsAdapter: widget.captionsAdapter,
-                  musicDurationStream: _musicPlayer?.durationStreamByIndex(
-                    measureIndex,
-                  ),
+                  musicDurationStream: _musicReadyCompleter.future
+                      .asStream()
+                      .asyncExpand(
+                        (_) => _musicPlayer?.durationStreamByIndex(
+                          measureIndex,
+                        ),
+                      ),
                   isCaptionsVisible: widget.isCaptionsVisible,
                 );
               }),
