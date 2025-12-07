@@ -306,7 +306,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     final nextRealIndex = nextIndex % _measureCount;
     final isAncFinished = nextRealIndex == 0;
     if (isAncFinished) {
-      unawaited(_musicPlayer?.restart());
+      unawaited(_musicPlayer?.seek(Duration.zero));
       if (!widget.loop) {
         _ancStateSubject.add(AncState.finished);
         return widget.onFinished?.call();
@@ -316,14 +316,6 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     _cIndexSubject.add(nextIndex);
     _measureControllers[1] = _measureControllers[0]..start();
     _measureControllers[0] = MeasureWidgetControllerImpl();
-  }
-
-  //todo remove
-  Future<Duration>? _trackDurationFuture(int index) {
-    if (_musicPlayer == null) return null;
-    return _musicReadyCompleter.future.then(
-      (_) => _musicPlayer!.getTrackDuration(index),
-    );
   }
 
   Future<void> _loadMusic() async {
@@ -427,18 +419,14 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                   onReady: onReady,
                   onFinished: _goNextMeasure,
                   controller: _measureControllers[controllerIndex],
-                  measureMusicCompletedStream: _musicPlayer?.currentIndexStream
-                      ?.pairwise()
-                      .where(
-                        (pair) =>
-                            pair[0] == measureIndex && pair[1] != measureIndex,
-                      ),
                   registry: registry,
                   captionsWidgetBuilder: widget.captionsWidgetBuilder,
                   voicePlayerBuilder: widget.voicePlayerBuilder,
                   isPausedStream: isMeasurePausedStream,
                   captionsAdapter: widget.captionsAdapter,
-                  trackDurationFuture: _trackDurationFuture(measureIndex),
+                  musicDurationStream: _musicPlayer?.durationStreamByIndex(
+                    measureIndex,
+                  ),
                   isCaptionsVisible: widget.isCaptionsVisible,
                 );
               }),
@@ -562,31 +550,47 @@ abstract class MeasureBaseState<T extends StatefulWidget> extends State<T> {
 mixin MeasureMusicCompletedMixin<T extends StatefulWidget>
     on MeasureBaseState<T> {
   MeasureStreamCompletionHelper? _helper;
+  StreamSubscription<Duration>? _subscription;
 
-  /// Returns a future of the duration of the measure track music.
-  Future<Duration> get trackDurationFuture {
-    final delegate = _provider.trackDurationFuture;
-    if (delegate == null) {
+  late final Stream<Duration?>? _musicDurationStream =
+      _provider.musicDurationStream;
+
+  @mustCallSuper
+  @override
+  void initState() {
+    super.initState();
+    if (_musicDurationStream == null) {
       throw Exception(
-        'MeasureWidgetProvider.trackDurationFuture should not be null '
+        'MeasureWidgetProvider.musicDurationStream should not be null '
         'using MeasureMusicCompletedMixin.',
       );
     }
-    return delegate;
+    _subscription = _musicDurationStream
+        .where((duration) => duration != null)
+        .cast<Duration>()
+        .listen(onDurationUpdate);
   }
 
   @mustCallSuper
   @override
   void dispose() {
     _helper?.dispose();
+    unawaited(_subscription?.cancel());
     super.dispose();
   }
 
   @override
   Future<void> resolveCompletion() {
-    _helper = MeasureStreamCompletionHelper(_provider.musicCompletedStream);
+    final completionStream = _musicDurationStream?.pairwise().where(
+      (pair) => pair[0] != null && pair[1] == null,
+    );
+    _helper = MeasureStreamCompletionHelper(completionStream);
     return _helper!.resolveCompletion();
   }
+
+  /// Called when the duration of the music is known.
+  /// Used to set AnimationController duration for example.
+  void onDurationUpdate(Duration duration);
 }
 
 /// Mixin that automatically handles the completion of a measure
@@ -613,6 +617,7 @@ mixin MeasureMusicCompletedMixin<T extends StatefulWidget>
 mixin MeasureVoiceCompletedMixin<T extends StatefulWidget>
     on MeasureBaseState<T> {
   MeasureStreamCompletionHelper? _helper;
+  StreamSubscription<Duration>? _subscription;
 
   /// Returns a future of the duration of the measure track voice.
   Future<Duration> get voiceDurationFuture {
@@ -630,6 +635,7 @@ mixin MeasureVoiceCompletedMixin<T extends StatefulWidget>
   @override
   void dispose() {
     _helper?.dispose();
+    unawaited(_subscription?.cancel());
     super.dispose();
   }
 

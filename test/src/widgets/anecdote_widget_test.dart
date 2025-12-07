@@ -60,6 +60,11 @@ class _TestState extends MeasureBaseState<MeasureBaseWidget<M>>
   void onPlay() {
     // TODO: implement onPlay
   }
+
+  @override
+  void onDurationUpdate(Duration duration) {
+    // TODO: implement onDurationUpdate
+  }
 }
 
 void main() {

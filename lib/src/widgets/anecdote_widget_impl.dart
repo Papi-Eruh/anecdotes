@@ -18,8 +18,7 @@ class MeasureDecoratorWidget extends StatefulWidget {
     this.onReady,
     this.captionsWidgetBuilder,
     this.voicePlayerBuilder,
-    this.measureMusicCompletedStream,
-    this.trackDurationFuture,
+    this.musicDurationStream,
     this.isCaptionsVisible = true,
   });
 
@@ -32,8 +31,7 @@ class MeasureDecoratorWidget extends StatefulWidget {
   final CaptionsAdapter captionsAdapter;
   final VoicePlayerBuilder? voicePlayerBuilder;
   final Stream<bool> isPausedStream;
-  final Stream<void>? measureMusicCompletedStream;
-  final Future<Duration>? trackDurationFuture;
+  final Stream<Duration?>? musicDurationStream;
   final bool isCaptionsVisible;
 
   @override
@@ -133,8 +131,7 @@ class _MeasureDecoratorWidgetState extends State<MeasureDecoratorWidget> {
       isPausedStream: _isPausedStream,
       controller: _controller,
       voiceCompletedStream: _voicePlayer?.completedStream,
-      musicCompletedStream: widget.measureMusicCompletedStream,
-      trackDurationFuture: widget.trackDurationFuture,
+      musicDurationStream: widget.musicDurationStream,
       voiceDurationFuture: _voiceDurationFuture,
       child: Builder(
         builder: (context) => widget.registry.build(context, widget.measure),
@@ -167,15 +164,14 @@ class _MeasureDecoratorWidgetState extends State<MeasureDecoratorWidget> {
 }
 
 class MeasureWidgetProvider extends InheritedWidget {
-  MeasureWidgetProvider({
+  const MeasureWidgetProvider({
     required super.child,
     required this.onReady,
     required this.onFinished,
     required this.controller,
     required this.isPausedStream,
-    this.musicCompletedStream,
     this.voiceCompletedStream,
-    this.trackDurationFuture,
+    this.musicDurationStream,
     this.voiceDurationFuture,
   });
 
@@ -183,10 +179,9 @@ class MeasureWidgetProvider extends InheritedWidget {
   final VoidCallback onFinished;
   final Stream<bool> isPausedStream;
   final MeasureWidgetController controller;
-  final Stream<void>? musicCompletedStream;
   final Stream<void>? voiceCompletedStream;
-  final Future<Duration>? trackDurationFuture;
   final Future<Duration>? voiceDurationFuture;
+  final Stream<Duration?>? musicDurationStream;
 
   static MeasureWidgetProvider of(BuildContext context) {
     final result = context
