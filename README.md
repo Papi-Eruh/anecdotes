@@ -17,7 +17,21 @@ Anecdotes is a Flutter package that provides widgets for telling stories (or **a
 
 ### Prerequisites
 
+Make sure you have the Flutter SDK (version >=3.35.0) and Dart SDK (version >=3.9.0) installed.
+
 ### Installation
+
+To use this package, add it as a git dependency in your `pubspec.yaml` file. 
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  anecdotes:
+    git:
+      url: https://github.com/Papi-Eruh/anecdotes.git
+```
+
+Then, run `flutter pub get` in your project's root directory.
 
 ## Usage
 
