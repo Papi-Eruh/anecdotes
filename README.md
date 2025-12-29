@@ -2,6 +2,8 @@
 
 > This package was born out of the development of the [Erudit](https://github.com/Papi-Eruh/erudit_public) application. We decided to make it open source so other developers can benefit from it.
 
+![Anecdotes](./resources/images/anecdotes.webp)
+
 ## What is Anecdotes ?
 
 Anecdotes is a Flutter package that provides widgets for telling stories (or **anecdotes**) with images, animations, music, lyrics, subtitles, etc.
