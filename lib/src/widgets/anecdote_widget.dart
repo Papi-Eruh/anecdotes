@@ -302,13 +302,16 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   }
 
   void _goNextMeasure() {
+    //todo add logs on next
     final nextIndex = _cIndexSubject.value + 1;
     final nextRealIndex = nextIndex % _measureCount;
     final isAncFinished = nextRealIndex == 0;
     if (isAncFinished) {
+      //todo add logs on finished
       unawaited(_musicPlayer?.seek(Duration.zero));
       if (!widget.loop) {
         _ancStateSubject.add(AncState.finished);
+        //todo add logs on finished & not loop
         return widget.onFinished?.call();
       }
     }
@@ -373,6 +376,13 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
     }
   }
 
+  Stream<Duration?> _musicDurationStream(int measureIndex) async* {
+    await _musicReadyCompleter.future;
+    if (_musicPlayer != null) {
+      yield* _musicPlayer!.durationStreamByIndex(measureIndex);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final registry = widget.measureBuilderRegistry;
@@ -424,14 +434,9 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                   voicePlayerBuilder: widget.voicePlayerBuilder,
                   isPausedStream: isMeasurePausedStream,
                   captionsAdapter: widget.captionsAdapter,
-                  musicDurationStream: _musicReadyCompleter.future
-                      .asStream()
-                      .asBroadcastStream()
-                      .asyncExpand(
-                        (_) => _musicPlayer?.durationStreamByIndex(
-                          measureIndex,
-                        ),
-                      ),
+                  musicDurationStream: _musicDurationStream(
+                    measureIndex,
+                  ).asBroadcastStream(),
                   isCaptionsVisible: widget.isCaptionsVisible,
                 );
               }),
