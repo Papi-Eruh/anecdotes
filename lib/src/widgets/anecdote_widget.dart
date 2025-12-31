@@ -426,6 +426,7 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
                   captionsAdapter: widget.captionsAdapter,
                   musicDurationStream: _musicReadyCompleter.future
                       .asStream()
+                      .asBroadcastStream()
                       .asyncExpand(
                         (_) => _musicPlayer?.durationStreamByIndex(
                           measureIndex,
@@ -559,10 +560,9 @@ mixin MeasureMusicCompletedMixin<T extends StatefulWidget>
   late final Stream<Duration?>? _musicDurationStream =
       _provider.musicDurationStream;
 
-  @mustCallSuper
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     if (_musicDurationStream == null) {
       throw Exception(
         'MeasureWidgetProvider.musicDurationStream should not be null '

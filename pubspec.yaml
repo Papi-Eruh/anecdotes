@@ -10,16 +10,13 @@ environment:
 dependencies:
   collection: ^1.19.1
   heart:
-    git:
-      url: https://github.com/Papi-Eruh/heart.git
+    path: ../heart/
   heart_flutter:
-    git:
-      url: https://github.com/Papi-Eruh/heart_flutter.git
+    path: ../heart_flutter/
   flutter:
     sdk: flutter
   maestro:
-    git:
-      url: https://github.com/Papi-Eruh/maestro.git
+    path: ../maestro/
   rxdart: ^0.28.0
   wakelock_plus: ^1.4.0
 

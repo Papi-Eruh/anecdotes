@@ -18,6 +18,10 @@ class M implements Measure {
   @override
   // TODO: implement voiceSource
   AudioSource? get voiceSource => throw UnimplementedError();
+
+  @override
+  // TODO: implement completionType
+  MeasureCompletionType get completionType => throw UnimplementedError();
 }
 
 class LolTest extends StatefulWidget {

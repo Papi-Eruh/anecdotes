@@ -21,6 +21,8 @@ enum AncMusicBehavior {
   bool get isScoped => this == scoped;
 }
 
+enum MeasureCompletionType { voice, music, custom }
+
 /// Base class representing a single measure or segment
 /// within an [Anecdote].
 ///
@@ -35,6 +37,8 @@ abstract class Measure {
 
   /// Optional source file for captions or subtitles.
   FileSource? get captionsSource;
+
+  MeasureCompletionType get completionType;
 }
 
 /// Represents a complete anecdote composed of multiple [Measure]s.
