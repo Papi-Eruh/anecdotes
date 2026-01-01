@@ -46,64 +46,238 @@ To render your measures, you must provide `AnecdoteWidget` with a `MeasureBuilde
 
 You can find pre-built measures and their corresponding widgets in the companion [anecdotes_catalog](https://github.com/Papi-Eruh/anecdotes_catalog) package, or create your own.
 
-### Example Scenario
+### Music, Voices, and Completion
 
-Let's create an anecdote with two scenes:
+`AnecdoteWidget` can orchestrate background music and voice-overs that are synchronized with your measures.
 
-1.  **Scene 1**: Show a map focused on Jamaica.
-2.  **Scene 2**: Display a looping Rive animation of pirates.
+**Audio**
 
-We'll use `WorldMapMeasure` and `LoopingRiveMeasure` from the `anecdotes_catalog` package.
+-   **Music**: To play background music for the entire anecdote, pass a `musicPlayer` to the `AnecdoteWidget`. The anecdote itself should contain an `AudioSource` in its `musicSource` property.
+-   **Voices**: For audio that is specific to a single scene (like a voice-over), you can add an `AudioSource` to the `voiceSource` property of a `Measure`.
 
-Here’s the correct way to implement this:
+This package does not handle audio playback directly. We recommend using a player package like [maestro_just_audio](https://github.com/Papi-Eruh/maestro_just_audio), which is designed to work seamlessly with `anecdotes`.
 
+Here is a conceptual example:
 ```dart
-final measureRegistry = MeasureBuilderRegistry()
-  ..register<WorldMapMeasure>(
-    (context, measure) => WorldMapMeasureWidget(measure: measure),
-  )
-  ..register<LoopingRiveMeasure>(
-    (context, measure) => LoopingRiveMeasureWidget(measure: measure),
-  );
-
-class PirateAnecdote implements Anecdote {
-  const PirateAnecdote();
+// 1. Define your anecdote with a music source
+class MyStory implements Anecdote {
+  @override
+  final musicSource = PlaylistSource([
+    AssetAudioSource('assets/audio/intro_music.mp3'),
+    AssetAudioSource('assets/audio/main_theme.mp3'),
+  ]);
 
   @override
-  final AudioSource? musicSource = null;
-
-  @override
-  List<Measure> get measures => const [
-        WorldMapMeasure(
-          id: 1,
-          countryCode: 'JM',
-        ),
-        LoopingRiveMeasure(
-          id: 2,
-          riveSource: FileSource('assets/animations/pirates.riv'),
-        ),
-      ];
+  List<Measure> get measures => [
+    // A measure with its own voice-over
+    MyMeasure(
+      voiceSource: AssetAudioSource('assets/audio/voice_over_1.mp3'),
+    ),
+    MyMeasure(),
+  ];
 }
 
+// 2. Create a music player (e.g., with maestro_just_audio)
+final maestro = createMaestro();
+
+// 3. Pass the player to the widget
+AnecdoteWidget(
+  anecdote: MyStory(),
+  musicPlayer: maestro.musicPlayer,
+  measureBuilderRegistry: registry,
+)
+```
+
+### Captions
+
+`AnecdoteWidget` can display subtitles synchronized with audio. To enable this, provide a `captionsSource` on a `Measure`.
+
+To render the captions, you need to provide a `captionBuilder` to the `AnecdoteWidget`. This builder receives the current caption and allows you to define how it should be displayed.
+
+Here is a minimal example of a `captionBuilder`:
+```dart
+AnecdoteWidget(
+  // ... other properties
+  captionBuilder: (context, caption) {
+    if (caption == null) {
+      return const SizedBox.shrink();
+    }
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Text(caption.text),
+    );
+  },
+)
+```
+
+To parse a caption file, you must provide a `CaptionsAdapter` to the `AnecdoteWidget`. For example, the package provides `JsonCaptionsAdapter` for handling JSON-based caption files. You can create your own implementation to support other formats like SRT or VTT.
+
+**Managing Measure Completion**
+
+Each measure needs to signal when it is complete so that the `AnecdoteWidget` can advance to the next one. There are two ways to manage this:
+
+1.  **Declarative Completion**: Set the `completionType` property on your `Measure`. For example, `MeasureCompletionType.music` will automatically complete the measure when the corresponding audio track in your playlist finishes.
+
+    ```dart
+    // This measure will complete when its corresponding music track ends.
+    const WorldMapMeasure(
+      countryCode: 'FR',
+      completionType: MeasureCompletionType.music,
+    )
+    ```
+
+2.  **Programmatic Completion**: For more complex logic, you can override the `resolveCompletion()` method in your `MeasureBaseState`. This method should return a `Future` that completes when your measure's work is done (e.g., an animation has finished).
+
+    ```dart
+    class MyCustomMeasureState extends MeasureBaseState<MyCustomMeasureWidget>
+        with SingleTickerProviderStateMixin {
+      final _completer = Completer<void>();
+      late final AnimationController _myAnimationController;
+
+      @override
+      void initState() {
+        super.initState();
+        _myAnimationController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+        _myAnimationController.addStatusListener(_onAnimationStatusChanged);
+      }
+
+      void _onAnimationStatusChanged(AnimationStatus status) {
+        if (status == AnimationStatus.completed) {
+          if (!_completer.isCompleted) {
+            _completer.complete();
+          }
+        }
+      }
+
+      @override
+      void dispose() {
+        _myAnimationController.removeStatusListener(_onAnimationStatusChanged);
+        _myAnimationController.dispose();
+        super.dispose();
+      }
+
+      @override
+      void onPlay() {
+        _myAnimationController.forward();
+      }
+
+      @override
+      Future<void> resolveCompletion() {
+        return _completer.future;
+      }
+
+      // ... other methods and build()
+    }
+    ```
+    A more detailed example is available in the "Creating a Custom Measure" section below.
+
+### Example Scenario
+
+Let's create an anecdote with two scenes that are synchronized with music:
+
+1.  **Scene 1**: Display a looping Rive animation of pirates.
+2.  **Scene 2**: Show a map focused on Jamaica.
+
+We'll use `LoopingRiveMeasure` and `WorldMapMeasure` from the `anecdotes_catalog` package, and a music player from `maestro_just_audio`.
+
+For a more complete and functional example, you can check out the example in the `anecdotes_catalog` repository: [anecdotes_catalog/example/lib/main.dart](https://github.com/Papi-Eruh/anecdotes_catalog/blob/main/example/lib/main.dart).
+
+Here’s how you could implement this:
+
+```dart
+import 'package:anecdotes/anecdotes.dart';
+import 'package:anecdotes_catalog/anecdotes_catalog.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:maestro_just_audio/maestro_just_audio.dart';
+
 void main() {
-  // Make sure to have your assets in pubspec.yaml
-  // assets:
-  //   - assets/animations/pirates.riv
+  // Make sure to add dependencies to your pubspec.yaml
+  // dependencies:
+  //   ...
+  //   flutter_svg: ^2.0.9 # use latest version
+  //   maestro_just_audio:
+  //     git:
+  //       url: https://github.com/Papi-Eruh/maestro_just_audio.git
+  //
+  // And declare your assets:
+  // flutter:
+  //   assets:
+  //     - assets/animations/pirates.riv
+  //     - assets/audio/barco_aventura.mp3
+  //     - assets/flags/jm.svg # from anecdotes_catalog, or your own flag widgets
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyAnecdote implements Anecdote {
+  const MyAnecdote({required this.measures, this.musicSource});
+
+  @override
+  final List<Measure> measures;
+  @override
+  final AudioSource? musicSource;
+}
+
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _registry = MeasureBuilderRegistry();
+  final _maestro = createMaestro();
+
+  @override
+  void initState() {
+    _registry
+      ..register<LoopingRiveMeasure>(
+        (context, measure) => LoopingRiveMeasureWidget(measure: measure),
+      )
+      ..register<WorldMapMeasure>(
+        (context, measure) => WorldMapMeasureWidget(
+          measure: measure,
+          languageCode: 'en',
+          countryWidgetBuilder: (cc, path) => SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SvgPicture.asset(path, height: 100),
+            ),
+          ),
+        ),
+      );
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _maestro.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Anecdote Demo',
-      home: Scaffold(
-        body: AnecdoteWidget(
-          anecdote: const PirateAnecdote(),
-          measureBuilderRegistry: measureRegistry,
+      home: AnecdoteWidget(
+        musicPlayer: _maestro.musicPlayer,
+        anecdote: MyAnecdote(
+          measures: [
+            LoopingRiveMeasure(
+              riveSource: AssetSource('assets/animations/pirates.riv'),
+              completionType: MeasureCompletionType.music,
+            ),
+            WorldMapMeasure(
+              countryCode: 'JM',
+              completionType: MeasureCompletionType.music,
+            ),
+          ],
+          musicSource: PlaylistSource([
+            AssetAudioSource('assets/audio/barco_aventura.mp3'),
+            AssetAudioSource('assets/audio/barco_aventura.mp3'),
+          ]),
         ),
+        measureBuilderRegistry: _registry,
       ),
     );
   }
@@ -166,14 +340,17 @@ class _FadeInTextMeasureWidgetState extends MeasureBaseState<FadeInTextMeasureWi
 
   FadeInTextMeasure get measure => widget.measure;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: Duration(milliseconds: measure.msDuration));
+  void _onAnimationStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      if (!_completer.isCompleted) {
+        _completer.complete();
+      }
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeStatusListener(_onAnimationStatusChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -190,16 +367,12 @@ class _FadeInTextMeasureWidgetState extends MeasureBaseState<FadeInTextMeasureWi
 
   @override
   Future<void> prepareBeforeReady() async {
-    // Perform any async setup here before the widget is shown.
+    _controller = AnimationController(vsync: this, duration: Duration(milliseconds: measure.msDuration));
+    _controller.addStatusListener(_onAnimationStatusChanged);
   }
 
   @override
   Future<void> resolveCompletion() {
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed && !_completer.isCompleted) {
-        _completer.complete();
-      }
-    });
     return _completer.future;
   }
 
