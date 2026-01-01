@@ -1,9 +1,7 @@
 import 'dart:async';
 
 import 'package:anecdotes/anecdotes.dart';
-import 'package:heart/heart.dart' hide Anecdote;
 import 'package:flutter/material.dart';
-import 'package:maestro/maestro.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Signature for a callback invoked when an [Anecdote] has finished playing.

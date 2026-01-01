@@ -494,6 +494,7 @@ abstract class MeasureBaseState<
   late MeasureWidgetProvider _provider;
   MeasureCompletioner? _completioner;
   StreamSubscription<bool>? _isPausedSubscription;
+  StreamSubscription<Duration>? _musicDurationStreamSubscription;
 
   Future<void> _doAfterCompletion() async {
     _provider.onFinished();
@@ -528,15 +529,11 @@ abstract class MeasureBaseState<
     unawaited(resolveCompletion().then((_) => _doAfterCompletion()));
     unawaited(_provider.voiceDurationFuture?.then(onVoiceDurationChanged));
     _provider.controller.addOnStart(_doOnStart);
-    //todo je ne sais pas si c'est vraiment utilise
-    /*
-    _subscription = musicDurationStream
-        .where((duration) => duration != null)
+
+    _musicDurationStreamSubscription = musicDurationStream
+        ?.where((duration) => duration != null)
         .cast<Duration>()
-        .listen(onDurationUpdate);
-
-
-        */
+        .listen(onMusicDurationChanged);
   }
 
   @mustCallSuper
@@ -544,6 +541,7 @@ abstract class MeasureBaseState<
   void dispose() {
     unawaited(_isPausedSubscription?.cancel());
     _completioner?.dispose();
+    unawaited(_musicDurationStreamSubscription?.cancel());
     super.dispose();
   }
 
@@ -574,11 +572,14 @@ abstract class MeasureBaseState<
   /// Called when playback is resumed.
   void onPlay();
 
-  //void onMusicDurationChanged(Duration duration);
-
   /// Called when the voice-over duration is known.
   void onVoiceDurationChanged(Duration duration) {
     // Override if UI needs to adapt to voice length.
+  }
+
+  /// Called when the measure music duration is known.
+  void onMusicDurationChanged(Duration duration) {
+    // Override if UI needs to adapt to measure music length.
   }
 }
 

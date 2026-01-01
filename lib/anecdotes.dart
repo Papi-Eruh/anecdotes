@@ -1,7 +1,7 @@
 /// A Very Good Project created by Very Good CLI.
 library;
 
-export 'package:heart/heart.dart' hide Anecdote;
+export 'package:heart/heart.dart' hide Anecdote, WorldMapMeasure;
 export 'package:maestro/maestro.dart';
 
 export 'src/models/models.dart';

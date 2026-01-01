@@ -130,7 +130,6 @@ class FadeInTextMeasure implements Measure {
     required this.id,
     required this.text,
     required this.msDuration,
-    this.style,
     this.captionsSource,
     this.voiceSource,
   });
@@ -144,7 +143,6 @@ class FadeInTextMeasure implements Measure {
 
   final String text;
   final int msDuration;
-  final TextStyle? style;
 }
 ```
 
@@ -210,7 +208,7 @@ class _FadeInTextMeasureWidgetState extends MeasureBaseState<FadeInTextMeasureWi
     return FadeTransition(
       opacity: _controller,
       child: Center(
-        child: Text(measure.text, style: measure.style),
+        child: Text(measure.text),
       ),
     );
   }
