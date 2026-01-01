@@ -126,17 +126,18 @@ Each measure needs to signal when it is complete so that the `AnecdoteWidget` ca
     )
     ```
 
-2.  **Programmatic Completion**: For more complex logic, you can override the `resolveCompletion()` method in your `MeasureBaseState`. This method should return a `Future` that completes when your measure's work is done (e.g., an animation has finished).
+2.  **Programmatic Completion**: For more complex logic, set your `Measure`'s `completionType` to `MeasureCompletionType.custom` and override the `resolveCompletionCustom()` method in your `MeasureBaseState`. This method should return a `Future` that completes when your measure's work is done (e.g., an animation has finished).
 
     ```dart
-    class MyCustomMeasureState extends MeasureBaseState<MyCustomMeasureWidget>
+    class MyCustomMeasureState extends MeasureBaseState<MyCustomMeasure, MyCustomMeasureWidget>
         with SingleTickerProviderStateMixin {
       final _completer = Completer<void>();
       late final AnimationController _myAnimationController;
 
+      // MyCustomMeasure would have `completionType: MeasureCompletionType.custom`
+
       @override
-      void initState() {
-        super.initState();
+      Future<void> prepareBeforeReady() async {
         _myAnimationController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
         _myAnimationController.addStatusListener(_onAnimationStatusChanged);
       }
@@ -162,7 +163,12 @@ Each measure needs to signal when it is complete so that the `AnecdoteWidget` ca
       }
 
       @override
-      Future<void> resolveCompletion() {
+      void onPause() {
+        _myAnimationController.stop();
+      }
+
+      @override
+      Future<void> resolveCompletionCustom() {
         return _completer.future;
       }
 
@@ -299,21 +305,23 @@ Let's create a `FadeInTextMeasure` that displays text with a fade-in animation.
 This class implements `Measure` and holds the data needed for the scene.
 
 ```dart
+import 'package:anecdotes/anecdotes.dart';
+
 class FadeInTextMeasure implements Measure {
   const FadeInTextMeasure({
-    required this.id,
     required this.text,
     required this.msDuration,
     this.captionsSource,
     this.voiceSource,
+    this.completionType = MeasureCompletionType.custom,
   });
 
-  @override
-  final int id;
   @override
   final FileSource? captionsSource;
   @override
   final AudioSource? voiceSource;
+  @override
+  final MeasureCompletionType completionType;
 
   final String text;
   final int msDuration;
@@ -325,15 +333,19 @@ class FadeInTextMeasure implements Measure {
 The widget is stateful. The `State` class handles the animation and tells the `AnecdoteWidget` when the measure is complete.
 
 ```dart
+import 'dart:async';
+import 'package:flutter/material.dart';
+
 class FadeInTextMeasureWidget extends MeasureBaseWidget<FadeInTextMeasure> {
   const FadeInTextMeasureWidget({super.key, required super.measure});
 
   @override
-  MeasureBaseState<FadeInTextMeasureWidget> createState() =>
+  MeasureBaseState<FadeInTextMeasure, FadeInTextMeasureWidget> createState() =>
       _FadeInTextMeasureWidgetState();
 }
 
-class _FadeInTextMeasureWidgetState extends MeasureBaseState<FadeInTextMeasureWidget>
+class _FadeInTextMeasureWidgetState
+    extends MeasureBaseState<FadeInTextMeasure, FadeInTextMeasureWidget>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   final _completer = Completer<void>();
@@ -367,12 +379,13 @@ class _FadeInTextMeasureWidgetState extends MeasureBaseState<FadeInTextMeasureWi
 
   @override
   Future<void> prepareBeforeReady() async {
-    _controller = AnimationController(vsync: this, duration: Duration(milliseconds: measure.msDuration));
+    _controller = AnimationController(
+        vsync: this, duration: Duration(milliseconds: measure.msDuration));
     _controller.addStatusListener(_onAnimationStatusChanged);
   }
 
   @override
-  Future<void> resolveCompletion() {
+  Future<void> resolveCompletionCustom() {
     return _completer.future;
   }
 

@@ -7,6 +7,8 @@ environment:
   sdk: ^3.9.2
 
 dependencies:
+  anecdotes:
+    path: ../
   flutter:
     sdk: flutter
 
