@@ -21,7 +21,32 @@ enum AncMusicBehavior {
   bool get isScoped => this == scoped;
 }
 
-enum MeasureCompletionType { voice, music, custom }
+/// Defines the strategy used to determine
+/// when a [Measure] is considered "finished".
+///
+/// This dictates the automatic navigation to the next measure.
+enum MeasureCompletionType {
+  /// The measure finishes automatically
+  /// when the [Measure.voiceSource] audio playback completes.
+  ///
+  /// This is the standard behavior for a narrated story.
+  voice,
+
+  /// The measure finishes automatically when the specific music segment
+  /// defined for this measure completes.
+  ///
+  /// Useful for measures that are synchronized
+  /// strictly with a musical structure.
+  music,
+
+  /// The measure finishes based on custom logic defined in the widget.
+  ///
+  /// If you select this type, you **must** override `resolveCompletionCustom()`
+  /// in your `MeasureBaseState` implementation to manually trigger the end
+  /// of the measure
+  /// (e.g., after a user interaction, a video ending, or a timer).
+  custom,
+}
 
 /// Base class representing a single measure or segment
 /// within an [Anecdote].
@@ -35,6 +60,8 @@ abstract class Measure {
   /// Optional source file for captions or subtitles.
   FileSource? get captionsSource;
 
+  /// Determines the strategy for finishing
+  /// this measure and advancing to the next.
   MeasureCompletionType get completionType;
 }
 

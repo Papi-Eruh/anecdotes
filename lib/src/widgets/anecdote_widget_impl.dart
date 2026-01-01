@@ -1,8 +1,9 @@
 import 'dart:async';
+
 import 'package:anecdotes/anecdotes.dart';
+import 'package:flutter/material.dart';
 import 'package:heart/heart.dart';
 import 'package:heart_flutter/heart_flutter.dart';
-import 'package:flutter/material.dart';
 import 'package:maestro/maestro.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -170,6 +171,7 @@ class MeasureWidgetProvider extends InheritedWidget {
     required this.onFinished,
     required this.controller,
     required this.isPausedStream,
+    super.key,
     this.voiceCompletedStream,
     this.musicDurationStream,
     this.voiceDurationFuture,
@@ -296,5 +298,43 @@ class CaptionsStreamControllerImpl implements CaptionsStreamController {
       _lastWordDuration = Duration.zero;
       completer?.complete();
     });
+  }
+}
+
+class MeasureMusicCompletioner implements MeasureCompletioner {
+  MeasureMusicCompletioner({required this.durationStream});
+
+  final Stream<Duration?>? durationStream;
+  MeasureStreamCompletionHelper? _helper;
+
+  @override
+  void dispose() {
+    _helper?.dispose();
+  }
+
+  @override
+  Future<void> resolveCompletion() {
+    final completionStream = durationStream?.pairwise().where(
+      (pair) => pair[0] != null && pair[1] == null,
+    );
+    _helper = MeasureStreamCompletionHelper(completionStream);
+    return _helper!.resolveCompletion();
+  }
+}
+
+class MeasureVoiceCompletioner implements MeasureCompletioner {
+  MeasureVoiceCompletioner({this.completedStream});
+
+  final Stream<void>? completedStream;
+  MeasureStreamCompletionHelper? _helper;
+  @override
+  void dispose() {
+    _helper?.dispose();
+  }
+
+  @override
+  Future<void> resolveCompletion() {
+    _helper = MeasureStreamCompletionHelper(completedStream);
+    return _helper!.resolveCompletion();
   }
 }

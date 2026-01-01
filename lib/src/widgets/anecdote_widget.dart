@@ -560,9 +560,13 @@ abstract class MeasureBaseState<
     await _completioner?.resolveCompletion();
   }
 
+  /// Override this if your measure uses [MeasureCompletionType.custom].
+  ///
+  /// You should return a Future that completes when the slide is finished.
   Future<void> resolveCompletionCustom() {
-    throw Exception(
-      'Should override this method using MeasureCompletionType.custom.',
+    throw UnimplementedError(
+      'You selected MeasureCompletionType.custom '
+      'but did not override resolveCompletionCustom().',
     );
   }
 
@@ -574,50 +578,17 @@ abstract class MeasureBaseState<
 
   //void onMusicDurationChanged(Duration duration);
 
+  /// Called when the voice-over duration is known.
   void onVoiceDurationChanged(Duration duration) {
-    // Override when needed by the developer
+    // Override if UI needs to adapt to voice length.
   }
 }
 
+/// Abstract interface for determining when a measure is "finished".
 abstract class MeasureCompletioner {
+  /// Returns a future that completes when the measure should end.
   Future<void> resolveCompletion();
+
+  /// Cleans up resources.
   void dispose();
-}
-
-class MeasureMusicCompletioner implements MeasureCompletioner {
-  MeasureMusicCompletioner({required this.durationStream});
-
-  final Stream<Duration?>? durationStream;
-  MeasureStreamCompletionHelper? _helper;
-
-  @override
-  void dispose() {
-    _helper?.dispose();
-  }
-
-  @override
-  Future<void> resolveCompletion() {
-    final completionStream = durationStream?.pairwise().where(
-      (pair) => pair[0] != null && pair[1] == null,
-    );
-    _helper = MeasureStreamCompletionHelper(completionStream);
-    return _helper!.resolveCompletion();
-  }
-}
-
-class MeasureVoiceCompletioner implements MeasureCompletioner {
-  MeasureVoiceCompletioner({this.completedStream});
-
-  final Stream<void>? completedStream;
-  MeasureStreamCompletionHelper? _helper;
-  @override
-  void dispose() {
-    _helper?.dispose();
-  }
-
-  @override
-  Future<void> resolveCompletion() {
-    _helper = MeasureStreamCompletionHelper(completedStream);
-    return _helper!.resolveCompletion();
-  }
 }
