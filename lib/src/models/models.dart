@@ -29,9 +29,6 @@ enum MeasureCompletionType { voice, music, custom }
 /// A measure typically corresponds to one self-contained
 /// part of a story, narration, or scene.
 abstract class Measure {
-  /// Unique identifier for this measure.
-  int get id;
-
   /// Optional source file for the voice narration.
   AudioSource? get voiceSource;
 
