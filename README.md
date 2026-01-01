@@ -50,31 +50,6 @@ Think of it like a movie: the `Anecdote` is the movie, and each `Measure` is a s
 
 These are abstract classes. You'll create your own classes that implement them.
 
-```dart
-// 1. Define a class for our story
-class MyStory implements Anecdote {
-  @override
-  final List<Measure> measures;
-
-  MyStory({required this.measures});
-
-  // We'll add music later
-  @override
-  final AudioSource? musicSource = null;
-}
-
-// 2. Define a class for a scene (we'll make a real one in a moment)
-class MyFirstMeasure implements Measure {
-  // We'll learn about these properties later
-  @override
-  final FileSource? captionsSource = null;
-  @override
-  final MeasureCompletionType completionType = MeasureCompletionType.custom;
-  @override
-  final AudioSource? voiceSource = null;
-}
-```
-
 ### Bringing a Story to Life with `AnecdoteWidget`
 
 The `AnecdoteWidget` is the stage where your story is performed. It takes an `Anecdote` and renders it.
@@ -85,7 +60,7 @@ But how does it know *what* to show for each `Measure`? It needs a little help.
 
 To display a `Measure`, you need a corresponding widget. Let's create one that fades in a line of text. This is a great example of a custom animated scene.
 
-#### Define the `Measure` Data**
+#### Define the `Measure` Data
 
 This class holds the data for our scene: the text to display and the duration of the fade animation.
 
@@ -198,22 +173,22 @@ class _FadeInTextMeasureWidgetState
 How does `AnecdoteWidget` know when to move to the next scene? You tell it by setting the `completionType` on your `Measure`.
 
 ##### **Declarative Completion**: The easy way. Let the audio decide.
-    -   `MeasureCompletionType.voice`: The scene ends when the `voiceSource` finishes playing.
-    -   `MeasureCompletionType.music`: The scene ends when its corresponding track in the `musicSource` playlist finishes.
+-   `MeasureCompletionType.voice`: The scene ends when the `voiceSource` finishes playing.
+-   `MeasureCompletionType.music`: The scene ends when its corresponding track in the `musicSource` playlist finishes.
 
-    ```dart
-    // From the anecdotes_catalog, this measure will end when its music track ends.
-    const WorldMapMeasure(
-      countryCode: 'FR',
-      completionType: MeasureCompletionType.music,
-    )
-    ```
+```dart
+// From the anecdotes_catalog, this measure will end when its music track ends.
+const WorldMapMeasure(
+  countryCode: 'FR',
+  completionType: MeasureCompletionType.music,
+)
+```
 
 ##### **Programmatic Completion**: The flexible way. You decide.
-    -   `MeasureCompletionType.custom`: You are in full control.
-    -   In your `MeasureBaseState`, you must override the `resolveCompletionCustom()` method.
-    -   This method should return a `Future` that completes whenever your scene's work is done (e.g., an animation has finished, a timer has elapsed, or the user tapped a button).
-    -   Our `FadeInTextMeasureWidget` example from earlier used this approach with a `Completer`.
+-   `MeasureCompletionType.custom`: You are in full control.
+-   In your `MeasureBaseState`, you must override the `resolveCompletionCustom()` method.
+-   This method should return a `Future` that completes whenever your scene's work is done (e.g., an animation has finished, a timer has elapsed, or the user tapped a button).
+-   Our `FadeInTextMeasureWidget` example from earlier used this approach with a `Completer`.
 
 ### The `MeasureBuilderRegistry`: Tying it All Together
 
