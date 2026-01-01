@@ -36,6 +36,7 @@ class _FadeInTextMeasureWidgetState
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   final _completer = Completer<void>();
+  double _animValue = 0;
 
   FadeInTextMeasure get measure => widget.measure;
 
@@ -56,11 +57,12 @@ class _FadeInTextMeasureWidgetState
 
   @override
   void onPlay() {
-    _controller.forward();
+    _controller.forward(from: _animValue);
   }
 
   @override
   void onPause() {
+    _animValue = _controller.value;
     _controller.stop();
   }
 
@@ -80,16 +82,12 @@ class _FadeInTextMeasureWidgetState
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _controller,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            measure.text,
-            style: Theme.of(context).textTheme.headlineMedium,
-            textAlign: TextAlign.center,
-          ),
+    return Center(
+      child: FadeTransition(
+        opacity: _controller,
+        child: Text(
+          measure.text,
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
       ),
     );

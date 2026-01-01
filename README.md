@@ -37,7 +37,9 @@ Then, run `flutter pub get` in your project's root directory.
 
 Welcome to the `anecdotes` package! Let's build an anecdote together, one step at a time.
 
-### 1. The Core Concepts: `Anecdote` and `Measure`
+> A complete, ready-to-test version of this example is available in the `/example` directory of this project.
+
+### The Core Concepts: `Anecdote` and `Measure`
 
 At its heart, an anecdote is simple. In this package:
 
@@ -73,120 +75,194 @@ class MyFirstMeasure implements Measure {
 }
 ```
 
-### 2. Bringing a Story to Life with `AnecdoteWidget`
+### Bringing a Story to Life with `AnecdoteWidget`
 
 The `AnecdoteWidget` is the stage where your story is performed. It takes an `Anecdote` and renders it.
 
 But how does it know *what* to show for each `Measure`? It needs a little help.
 
-### 3. Creating a Custom `Measure` Widget
+### Creating a Custom `Measure` Widget
 
-To display a `Measure`, you need a corresponding widget. Let's create a simple one: a `Widget` that displays some text. This is the most basic way to create a scene.
+To display a `Measure`, you need a corresponding widget. Let's create one that fades in a line of text. This is a great example of a custom animated scene.
 
-**1. Define the `Measure` Data**
+#### Define the `Measure` Data**
 
-This class holds the data for our scene, in this case, just a string of text.
+This class holds the data for our scene: the text to display and the duration of the fade animation.
 
 ```dart
-class SimpleTextMeasure implements Measure {
-  const SimpleTextMeasure(this.text);
-  final String text;
+import 'package:anecdotes/anecdotes.dart';
 
-  // For now, we will control completion manually
+class FadeInTextMeasure implements Measure {
+  const FadeInTextMeasure({
+    required this.text,
+    required this.msDuration,
+    this.captionsSource,
+    this.voiceSource,
+    this.completionType = MeasureCompletionType.custom,
+  });
+
   @override
-  final completionType = MeasureCompletionType.custom;
+  final FileSource? captionsSource;
   @override
-  final voiceSource = null;
+  final AudioSource? voiceSource;
   @override
-  final captionsSource = null;
+  final MeasureCompletionType completionType;
+
+  final String text;
+  final int msDuration;
 }
 ```
 
-**2. Create the `Measure` Widget and its `State`**
+#### Create the `Measure` Widget and its `State`
 
-The `State` class is where the magic happens. It must extend `MeasureBaseState`, which gives you methods to control the scene's lifecycle.
-
-For this simple example, we'll tell the `AnecdoteWidget` that our scene is "complete" after a 3-second delay.
+The `State` class must extend `MeasureBaseState`, which gives you methods to control the scene's lifecycle. Here, we'll use an `AnimationController` to drive the fade and a `Completer` to signal when the animation is finished.
 
 ```dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:anecdotes/anecdotes.dart';
 
-// The Widget
-class SimpleTextMeasureWidget extends MeasureBaseWidget<SimpleTextMeasure> {
-  const SimpleTextMeasureWidget({super.key, required super.measure});
+class FadeInTextMeasureWidget extends MeasureBaseWidget<FadeInTextMeasure> {
+  const FadeInTextMeasureWidget({super.key, required super.measure});
 
   @override
-  MeasureBaseState<SimpleTextMeasure, SimpleTextMeasureWidget> createState() =>
-      _SimpleTextMeasureWidgetState();
+  MeasureBaseState<FadeInTextMeasure, FadeInTextMeasureWidget> createState() =>
+      _FadeInTextMeasureWidgetState();
 }
 
-// The State
-class _SimpleTextMeasureWidgetState
-    extends MeasureBaseState<SimpleTextMeasure, SimpleTextMeasureWidget> {
+class _FadeInTextMeasureWidgetState
+    extends MeasureBaseState<FadeInTextMeasure, FadeInTextMeasureWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
   final _completer = Completer<void>();
+  double _animValue = 0;
+
+  FadeInTextMeasure get measure => widget.measure;
+
+  void _onAnimationStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      if (!_completer.isCompleted) {
+        _completer.complete();
+      }
+    }
+  }
 
   @override
-  Future<void> prepareBeforeReady() async {
-    // This is where you can do setup work, like initializing controllers.
-    // In our case, we'll start a timer when the scene begins to play.
+  void dispose() {
+    _controller.removeStatusListener(_onAnimationStatusChanged);
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   void onPlay() {
-    // The AnecdoteWidget told us to start playing!
-    // We'll complete this scene after 3 seconds.
-    Future.delayed(const Duration(seconds: 3), () {
-      if (!_completer.isCompleted) {
-        _completer.complete();
-      }
-    });
+    _controller.forward(from: _animValue);
+  }
+
+  @override
+  void onPause() {
+    _animValue = _controller.value;
+    _controller.stop();
+  }
+
+  @override
+  Future<void> prepareBeforeReady() async {
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: measure.msDuration),
+    );
+    _controller.addStatusListener(_onAnimationStatusChanged);
   }
 
   @override
   Future<void> resolveCompletionCustom() {
-    // AnecdoteWidget will wait for this Future to complete before moving on.
     return _completer.future;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text(widget.measure.text));
+    return Center(
+      child: FadeTransition(
+        opacity: _controller,
+        child: Text(
+          measure.text,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+      ),
+    );
   }
 }
 ```
 
-### 4. The `MeasureBuilderRegistry`: Tying it All Together
+#### Controlling the Flow: Measure Completion
 
-Now we have data (`SimpleTextMeasure`) and a widget (`SimpleTextMeasureWidget`). How do we connect them?
+How does `AnecdoteWidget` know when to move to the next scene? You tell it by setting the `completionType` on your `Measure`.
 
-Enter the `MeasureBuilderRegistry`. This object tells `AnecdoteWidget` which widget to build for which `Measure`.
+##### **Declarative Completion**: The easy way. Let the audio decide.
+    -   `MeasureCompletionType.voice`: The scene ends when the `voiceSource` finishes playing.
+    -   `MeasureCompletionType.music`: The scene ends when its corresponding track in the `musicSource` playlist finishes.
+
+    ```dart
+    // From the anecdotes_catalog, this measure will end when its music track ends.
+    const WorldMapMeasure(
+      countryCode: 'FR',
+      completionType: MeasureCompletionType.music,
+    )
+    ```
+
+##### **Programmatic Completion**: The flexible way. You decide.
+    -   `MeasureCompletionType.custom`: You are in full control.
+    -   In your `MeasureBaseState`, you must override the `resolveCompletionCustom()` method.
+    -   This method should return a `Future` that completes whenever your scene's work is done (e.g., an animation has finished, a timer has elapsed, or the user tapped a button).
+    -   Our `FadeInTextMeasureWidget` example from earlier used this approach with a `Completer`.
+
+### The `MeasureBuilderRegistry`: Tying it All Together
+
+Now we have our `FadeInTextMeasure` data and the `FadeInTextMeasureWidget`. The `MeasureBuilderRegistry` connects them. It tells `AnecdoteWidget` which widget to build for which `Measure`.
 
 ```dart
-// 1. Create a registry
+// 1. Define your Anecdote using the new measure
+class MyAnecdote implements Anecdote {
+  const MyAnecdote();
+
+  @override
+  List<Measure> get measures => const [
+    FadeInTextMeasure(text: 'This is a custom measure.', msDuration: 2000),
+    FadeInTextMeasure(
+      text: 'It fades in text with a custom animation.',
+      msDuration: 2500,
+    ),
+    FadeInTextMeasure(
+      text: 'This is the end of the anecdote.',
+      msDuration: 3000,
+    ),
+  ];
+
+  @override
+  AudioSource? get musicSource => null;
+}
+
+
+// 2. Create a registry and register your measure type
 final registry = MeasureBuilderRegistry();
 
-// 2. Register our custom measure type
-registry.register<SimpleTextMeasure>(
-  (context, measure) => SimpleTextMeasureWidget(measure: measure),
+registry.register<FadeInTextMeasure>(
+  (context, measure) => FadeInTextMeasureWidget(measure: measure),
 );
 
-// 3. Now, we can use it!
-AnecdoteWidget(
-  anecdote: MyStory(
-    measures: [
-      SimpleTextMeasure('Hello, World!'),
-      SimpleTextMeasure('This is Anecdotes.'),
-    ],
+// 3. Use it in your app!
+MaterialApp(
+  home: Scaffold(
+    body: AnecdoteWidget(
+      anecdote: const MyAnecdote(),
+      measureBuilderRegistry: registry,
+    ),
   ),
-  measureBuilderRegistry: registry,
 );
 ```
 
-When `AnecdoteWidget` encounters a `SimpleTextMeasure`, it will ask the registry for the correct builder and use it to create a `SimpleTextMeasureWidget`.
+When `AnecdoteWidget` encounters a `FadeInTextMeasure`, it will ask the registry for the correct builder and use it to create a `FadeInTextMeasureWidget`.
 
-### 5. Using Pre-Built Measures: `anecdotes_catalog`
+### Using Pre-Built Measures: `anecdotes_catalog`
 
 Creating custom widgets for every scene is powerful, but a lot of work. For common scenarios, you can use the [anecdotes_catalog](https://github.com/Papi-Eruh/anecdotes_catalog) package, which provides ready-to-use measures and widgets for things like:
 
@@ -196,7 +272,7 @@ Creating custom widgets for every scene is powerful, but a lot of work. For comm
 
 Using them is just like using your own custom measure: you add them to your `measures` list and register their corresponding widgets from the catalog.
 
-### 6. Adding Layers: Audio, Captions, and Completion Control
+### Adding Layers: Audio, and Captions
 
 Now that you understand the basics, let's add some flair.
 
@@ -257,29 +333,7 @@ AnecdoteWidget(
 )
 ```
 
-#### Controlling the Flow: Measure Completion
-
-How does `AnecdoteWidget` know when to move to the next scene? You tell it by setting the `completionType` on your `Measure`.
-
-1.  **Declarative Completion**: The easy way. Let the audio decide.
-    -   `MeasureCompletionType.voice`: The scene ends when the `voiceSource` finishes playing.
-    -   `MeasureCompletionType.music`: The scene ends when its corresponding track in the `musicSource` playlist finishes.
-
-    ```dart
-    // From the anecdotes_catalog, this measure will end when its music track ends.
-    const WorldMapMeasure(
-      countryCode: 'FR',
-      completionType: MeasureCompletionType.music,
-    )
-    ```
-
-2.  **Programmatic Completion**: The flexible way. You decide.
-    -   `MeasureCompletionType.custom`: You are in full control.
-    -   In your `MeasureBaseState`, you must override the `resolveCompletionCustom()` method.
-    -   This method should return a `Future` that completes whenever your scene's work is done (e.g., an animation has finished, a timer has elapsed, or the user tapped a button).
-    -   Our `SimpleTextMeasureWidget` example from earlier used this approach with a `Completer`.
-
-### 7. Displaying Multiple Stories with `AnecdoteCarousel`
+### Displaying Multiple Stories with `AnecdoteCarousel`
 
 What if you have more than one story to tell? The `AnecdoteCarousel` is a `PageView` that displays multiple `AnecdoteWidget`s in sequence, making it easy to create a playlist of anecdotes.
 
