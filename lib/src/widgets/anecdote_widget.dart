@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:anecdotes/anecdotes.dart';
+import 'package:anecdotes/src/logger.dart';
 import 'package:anecdotes/src/widgets/anecdote_widget_impl.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -302,16 +303,16 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   }
 
   void _goNextMeasure() {
-    //todo add logs on next
+    ancLogger.info('Going next measure.');
     final nextIndex = _cIndexSubject.value + 1;
     final nextRealIndex = nextIndex % _measureCount;
-    final isAncFinished = nextRealIndex == 0;
-    if (isAncFinished) {
-      //todo add logs on finished
+    final hasReachedEndLastMeasure = nextRealIndex == 0;
+    if (hasReachedEndLastMeasure) {
+      ancLogger.info('Reached end of last measure.');
       unawaited(_musicPlayer?.seek(Duration.zero));
       if (!widget.loop) {
+        ancLogger.info('AncState => Finished.');
         _ancStateSubject.add(AncState.finished);
-        //todo add logs on finished & not loop
         return widget.onFinished?.call();
       }
     }
@@ -552,7 +553,6 @@ abstract class MeasureBaseState<
   /// So, this widget is ready to be started.
   Future<void> prepareBeforeReady();
 
-  //todo add a method resolveCompletionCustom, that can be filled or not depending
   /// When this future is completed, the measure is considered as finished.
   /// This will lead to go next measure or finish the anecdote.
   Future<void> resolveCompletion() async {
@@ -560,7 +560,6 @@ abstract class MeasureBaseState<
     await _completioner?.resolveCompletion();
   }
 
-  /// todo complete documentation
   Future<void> resolveCompletionCustom() {
     throw Exception(
       'Should override this method using MeasureCompletionType.custom.',
