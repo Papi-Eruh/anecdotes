@@ -482,13 +482,18 @@ abstract class MeasureBaseWidget<M extends Measure> extends StatefulWidget {
   final M measure;
 
   @override
-  MeasureBaseState<MeasureBaseWidget> createState();
+  MeasureBaseState<M, MeasureBaseWidget<M>> createState();
 }
 
 /// Base state class for widgets extending [MeasureBaseWidget].
 /// Provides convenient access to the typed measure instance.
-abstract class MeasureBaseState<T extends StatefulWidget> extends State<T> {
+abstract class MeasureBaseState<
+  M extends Measure,
+  W extends MeasureBaseWidget<M>
+>
+    extends State<W> {
   late MeasureWidgetProvider _provider;
+  MeasureCompletioner? _completioner;
   StreamSubscription<bool>? _isPausedSubscription;
 
   Future<void> _doAfterCompletion() async {
@@ -498,6 +503,7 @@ abstract class MeasureBaseState<T extends StatefulWidget> extends State<T> {
   }
 
   void _doOnStart() {
+    //todo could await here duration stream emit one time
     _isPausedSubscription = _provider.isPausedStream.listen((event) {
       if (event) return onPause();
       onPlay();
@@ -509,15 +515,36 @@ abstract class MeasureBaseState<T extends StatefulWidget> extends State<T> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _provider = MeasureWidgetProvider.of(context);
+    final musicDurationStream = _provider.musicDurationStream;
+    _completioner = switch (widget.measure.completionType) {
+      MeasureCompletionType.voice => MeasureVoiceCompletioner(
+        completedStream: _provider.voiceCompletedStream,
+      ),
+      MeasureCompletionType.music => MeasureMusicCompletioner(
+        durationStream: musicDurationStream,
+      ),
+      MeasureCompletionType.custom => null,
+    };
     unawaited(prepareBeforeReady().then((_) => _provider.onReady()));
     unawaited(resolveCompletion().then((_) => _doAfterCompletion()));
+    unawaited(_provider.voiceDurationFuture?.then(onVoiceDurationChanged));
     _provider.controller.addOnStart(_doOnStart);
+    //todo je ne sais pas si c'est vraiment utilise
+    /*
+    _subscription = musicDurationStream
+        .where((duration) => duration != null)
+        .cast<Duration>()
+        .listen(onDurationUpdate);
+
+
+        */
   }
 
   @mustCallSuper
   @override
   void dispose() {
     unawaited(_isPausedSubscription?.cancel());
+    _completioner?.dispose();
     super.dispose();
   }
 
@@ -525,133 +552,73 @@ abstract class MeasureBaseState<T extends StatefulWidget> extends State<T> {
   /// So, this widget is ready to be started.
   Future<void> prepareBeforeReady();
 
+  //todo add a method resolveCompletionCustom, that can be filled or not depending
   /// When this future is completed, the measure is considered as finished.
   /// This will lead to go next measure or finish the anecdote.
-  Future<void> resolveCompletion();
+  Future<void> resolveCompletion() async {
+    if (_completioner == null) return resolveCompletionCustom();
+    await _completioner?.resolveCompletion();
+  }
+
+  /// todo complete documentation
+  Future<void> resolveCompletionCustom() {
+    throw Exception(
+      'Should override this method using MeasureCompletionType.custom.',
+    );
+  }
 
   /// Called when playback is paused.
   void onPause();
 
   /// Called when playback is resumed.
   void onPlay();
+
+  //void onMusicDurationChanged(Duration duration);
+
+  void onVoiceDurationChanged(Duration duration) {
+    // Override when needed by the developer
+  }
 }
 
-/// Mixin that automatically handles the completion of a measure
-/// based on the music completion stream.
-///
-/// Applying this mixin to a [MeasureBaseState] widget will provide
-/// an automatic implementation of [resolveCompletion], so that the
-/// measure is considered finished when the music completes.
-///
-/// This allows measure widgets to avoid overriding [resolveCompletion]
-/// manually, reducing boilerplate.
-///
-/// Example:
-/// ```dart
-/// class MyMeasureState extends MeasureBaseState<MyMeasureWidget>
-///     with MeasureMusicCompletedMixin {
-///   // No need to override resolveCompletion.
-/// }
-/// ```
-///
-/// See also:
-/// - [MeasureBaseState], the base class for measure widget states.
-/// - [MeasureWidgetProvider], which exposes the music completion stream.
-mixin MeasureMusicCompletedMixin<T extends StatefulWidget>
-    on MeasureBaseState<T> {
+abstract class MeasureCompletioner {
+  Future<void> resolveCompletion();
+  void dispose();
+}
+
+class MeasureMusicCompletioner implements MeasureCompletioner {
+  MeasureMusicCompletioner({required this.durationStream});
+
+  final Stream<Duration?>? durationStream;
   MeasureStreamCompletionHelper? _helper;
-  StreamSubscription<Duration>? _subscription;
 
-  late final Stream<Duration?>? _musicDurationStream =
-      _provider.musicDurationStream;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_musicDurationStream == null) {
-      throw Exception(
-        'MeasureWidgetProvider.musicDurationStream should not be null '
-        'using MeasureMusicCompletedMixin.',
-      );
-    }
-    _subscription = _musicDurationStream
-        .where((duration) => duration != null)
-        .cast<Duration>()
-        .listen(onDurationUpdate);
-  }
-
-  @mustCallSuper
   @override
   void dispose() {
     _helper?.dispose();
-    unawaited(_subscription?.cancel());
-    super.dispose();
   }
 
   @override
   Future<void> resolveCompletion() {
-    final completionStream = _musicDurationStream?.pairwise().where(
+    final completionStream = durationStream?.pairwise().where(
       (pair) => pair[0] != null && pair[1] == null,
     );
     _helper = MeasureStreamCompletionHelper(completionStream);
     return _helper!.resolveCompletion();
   }
-
-  /// Called when the duration of the music is known.
-  /// Used to set AnimationController duration for example.
-  void onDurationUpdate(Duration duration);
 }
 
-/// Mixin that automatically handles the completion of a measure
-/// based on the voice completion stream.
-///
-/// Applying this mixin to a [MeasureBaseState] widget will provide
-/// an automatic implementation of [resolveCompletion], so that the
-/// measure is considered finished when the voice completes.
-///
-/// This allows measure widgets to avoid overriding [resolveCompletion]
-/// manually, reducing boilerplate.
-///
-/// Example:
-/// ```dart
-/// class MyMeasureState extends MeasureBaseState<MyMeasureWidget>
-///     with MeasureVoiceCompletedMixin {
-///   // No need to override resolveCompletion.
-/// }
-/// ```
-///
-/// See also:
-/// - [MeasureBaseState], the base class for measure widget states.
-/// - [MeasureWidgetProvider], which exposes the voice completion stream.
-mixin MeasureVoiceCompletedMixin<T extends StatefulWidget>
-    on MeasureBaseState<T> {
+class MeasureVoiceCompletioner implements MeasureCompletioner {
+  MeasureVoiceCompletioner({this.completedStream});
+
+  final Stream<void>? completedStream;
   MeasureStreamCompletionHelper? _helper;
-  StreamSubscription<Duration>? _subscription;
-
-  /// Returns a future of the duration of the measure track voice.
-  Future<Duration> get voiceDurationFuture {
-    final delegate = _provider.voiceDurationFuture;
-    if (delegate == null) {
-      throw Exception(
-        'MeasureWidgetProvider.voiceDurationFuture should not be null '
-        'using MeasureVoiceCompletedMixin.',
-      );
-    }
-    return delegate;
-  }
-
-  @mustCallSuper
   @override
   void dispose() {
     _helper?.dispose();
-    unawaited(_subscription?.cancel());
-    super.dispose();
   }
 
-  @mustCallSuper
   @override
   Future<void> resolveCompletion() {
-    _helper = MeasureStreamCompletionHelper(_provider.voiceCompletedStream);
+    _helper = MeasureStreamCompletionHelper(completedStream);
     return _helper!.resolveCompletion();
   }
 }
