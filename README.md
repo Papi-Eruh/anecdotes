@@ -51,6 +51,8 @@ Welcome to the `anecdotes` package! Let's build an anecdote together, one step a
 
 > A complete, ready-to-test version of this example is available in the `/example` directory of this project.
 
+<br>
+
 ### The Core Concepts: `Anecdote` and `Measure`
 
 At its heart, an anecdote is simple. In this package:
@@ -62,11 +64,15 @@ Think of it like a movie: the `Anecdote` is the movie, and each `Measure` is a s
 
 These are abstract classes. You'll create your own classes that implement them.
 
+<br>
+
 ### Bringing a Story to Life with `AnecdoteWidget`
 
 The `AnecdoteWidget` is the stage where your story is performed. It takes an `Anecdote` and renders it.
 
 But how does it know *what* to show for each `Measure`? It needs a little help.
+
+<br>
 
 ### Creating a Custom `Measure` Widget
 
@@ -130,6 +136,8 @@ class _FadeInTextMeasureWidgetState
 }
 ```
 
+<br>
+
 Next, we'll set up the `AnimationController` in the `prepareBeforeReady` method. This method is called before the measure is displayed, making it the perfect place for initialization. We also add a status listener to the controller that will complete our `Completer` when the animation finishes.
 
 ```dart
@@ -153,6 +161,8 @@ Future<void> prepareBeforeReady() async {
 }
 ```
 
+<br>
+
 We need to clean up our controller when the widget is disposed to prevent memory leaks.
 
 ```dart
@@ -165,6 +175,8 @@ void dispose() {
   super.dispose();
 }
 ```
+
+<br>
 
 Now, let's implement the play and pause logic. `onPlay` will start the animation from where it left off, and `onPause` will stop it and save its current progress.
 
@@ -183,6 +195,8 @@ void onPause() {
 }
 ```
 
+<br>
+
 Now, we need to tell the `AnecdoteWidget` when this measure is complete so it can move to the next one. This is done via the `completionType` property on the `Measure`. There are two main approaches:
 
 **Declarative Completion**: The easy way. You let an audio source determine the duration.
@@ -196,6 +210,8 @@ const WorldMapMeasure(
   completionType: MeasureCompletionType.music,
 )
 ```
+
+<br>
 
 **Programmatic Completion**: The flexible way. You decide when the scene is over.
 -   `MeasureCompletionType.custom`: You are in full control.
@@ -212,6 +228,8 @@ Future<void> resolveCompletionCustom() {
   return _completer.future;
 }
 ```
+
+<br>
 
 Finally, the `build` method constructs the UI. We use a `FadeTransition` widget, driven by our `_controller`, to animate the opacity of the `Text` widget.
 
@@ -231,6 +249,8 @@ Widget build(BuildContext context) {
   );
 }
 ```
+
+<br>
 
 ### The `MeasureBuilderRegistry`: Tying it All Together
 
@@ -279,6 +299,8 @@ MaterialApp(
 
 When `AnecdoteWidget` encounters a `FadeInTextMeasure`, it will ask the registry for the correct builder and use it to create a `FadeInTextMeasureWidget`.
 
+<br>
+
 ### Using Pre-Built Measures: `anecdotes_catalog`
 
 Creating custom widgets for every scene is powerful, but a lot of work. For common scenarios, you can use the [anecdotes_catalog](https://github.com/Papi-Eruh/anecdotes_catalog) package, which provides ready-to-use measures and widgets for things like:
@@ -288,6 +310,8 @@ Creating custom widgets for every scene is powerful, but a lot of work. For comm
 -   ...and more!
 
 Using them is just like using your own custom measure: you add them to your `measures` list and register their corresponding widgets from the catalog.
+
+<br>
 
 ### Adding Layers: Audio, and Captions
 
@@ -329,6 +353,8 @@ AnecdoteWidget(
 )
 ```
 
+<br>
+
 #### Captions
 
 To display subtitles synchronized with your audio, provide a `captionsSource` on a `Measure`. You'll also need to provide two builders to the `AnecdoteWidget`:
@@ -349,6 +375,8 @@ AnecdoteWidget(
   },
 )
 ```
+
+<br>
 
 ### Displaying Multiple Stories with `AnecdoteCarousel`
 
