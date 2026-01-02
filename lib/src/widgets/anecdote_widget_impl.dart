@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:anecdotes/anecdotes.dart';
 import 'package:flutter/material.dart';
+import 'package:heart/heart.dart';
 import 'package:heart_flutter/heart_flutter.dart';
 import 'package:rxdart/rxdart.dart';
 

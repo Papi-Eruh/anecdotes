@@ -6,6 +6,7 @@ import 'package:anecdotes/src/logger.dart';
 import 'package:anecdotes/src/widgets/anecdote_widget_impl.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:heart/heart.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
