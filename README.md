@@ -6,7 +6,19 @@
 
 ## What is Anecdotes ?
 
-Anecdotes is a Flutter package that provides widgets for telling stories (or **anecdotes**) with images, animations, music, lyrics, subtitles, etc.
+Anecdotes is a Flutter package that provides a powerful and flexible framework for telling stories (or **anecdotes**). It allows you to compose narratives from individual scenes, combining images, animations, music, and text to create rich, engaging experiences.
+
+### Key Features:
+
+*   **Story Composition**: Build stories (`Anecdote`) from a sequence of scenes (`Measure`), giving you a clear and organized structure for your narrative.
+*   **Custom Scene Widgets**: You have complete freedom to create your own Flutter widgets for each scene. If you can build it in Flutter, you can make it a part of your anecdote.
+*   **Animation and Lifecycle Control**: Manage the state of your scenes with `play`, `pause`, and completion callbacks. The framework gives you the hooks to control animations and other time-based events.
+*   **Flexible Scene Duration**: Define how long each scene should last. You can tie the duration to the length of a voice-over, a piece of music, or implement custom logic for programmatic control.
+*   **Extensible Builder Registry**: The `MeasureBuilderRegistry` lets you map your scene data models to their corresponding widgets, promoting a clean, decoupled architecture.
+*   **Audio Orchestration**: Easily layer background music for an entire anecdote and add specific voice-overs to individual scenes. The package is designed to integrate with audio player packages like `maestro_just_audio`.
+*   **Synchronized Captions**: Display subtitles synchronized with your audio. The package provides adapters for common caption formats and allows you to build your own.
+*   **Carousel for Multiple Stories**: The `AnecdoteCarousel` widget makes it simple to display multiple anecdotes in a swipeable `PageView`.
+*   **Pre-built Components**: For common use cases, the [anecdotes_catalog](https://github.com/Papi-Eruh/anecdotes_catalog) package provides ready-to-use measures and widgets, such as for Rive animations and world maps.
 
 ### Built with
 
@@ -92,9 +104,12 @@ class FadeInTextMeasure implements Measure {
 
 The `State` class must extend `MeasureBaseState`, which gives you methods to control the scene's lifecycle. Here, we'll use an `AnimationController` to drive the fade and a `Completer` to signal when the animation is finished.
 
+First, let's define the widget and the basic state class. The state will hold an `AnimationController` to drive the fade, a `Completer` to signal when the animation is finished, and a variable to track the animation's progress. This progress tracking is necessary because an anecdote can be paused and resumed, and we need to know where to restart the animation from.
+
 ```dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:anecdotes/anecdotes.dart';
 
 class FadeInTextMeasureWidget extends MeasureBaseWidget<FadeInTextMeasure> {
   const FadeInTextMeasureWidget({super.key, required super.measure});
@@ -112,83 +127,110 @@ class _FadeInTextMeasureWidgetState
   double _animValue = 0;
 
   FadeInTextMeasure get measure => widget.measure;
-
-  void _onAnimationStatusChanged(AnimationStatus status) {
-    if (status == AnimationStatus.completed) {
-      if (!_completer.isCompleted) {
-        _completer.complete();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.removeStatusListener(_onAnimationStatusChanged);
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  void onPlay() {
-    _controller.forward(from: _animValue);
-  }
-
-  @override
-  void onPause() {
-    _animValue = _controller.value;
-    _controller.stop();
-  }
-
-  @override
-  Future<void> prepareBeforeReady() async {
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: measure.msDuration),
-    );
-    _controller.addStatusListener(_onAnimationStatusChanged);
-  }
-
-  @override
-  Future<void> resolveCompletionCustom() {
-    return _completer.future;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: FadeTransition(
-        opacity: _controller,
-        child: Text(
-          measure.text,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-      ),
-    );
-  }
 }
 ```
 
-#### Controlling the Flow: Measure Completion
+Next, we'll set up the `AnimationController` in the `prepareBeforeReady` method. This method is called before the measure is displayed, making it the perfect place for initialization. We also add a status listener to the controller that will complete our `Completer` when the animation finishes.
 
-How does `AnecdoteWidget` know when to move to the next scene? You tell it by setting the `completionType` on your `Measure`.
+```dart
+// In _FadeInTextMeasureWidgetState
 
-##### **Declarative Completion**: The easy way. Let the audio decide.
+void _onAnimationStatusChanged(AnimationStatus status) {
+  if (status == AnimationStatus.completed) {
+    if (!_completer.isCompleted) {
+      _completer.complete();
+    }
+  }
+}
+
+@override
+Future<void> prepareBeforeReady() async {
+  _controller = AnimationController(
+    vsync: this,
+    duration: Duration(milliseconds: measure.msDuration),
+  );
+  _controller.addStatusListener(_onAnimationStatusChanged);
+}
+```
+
+We need to clean up our controller when the widget is disposed to prevent memory leaks.
+
+```dart
+// In _FadeInTextMeasureWidgetState
+
+@override
+void dispose() {
+  _controller.removeStatusListener(_onAnimationStatusChanged);
+  _controller.dispose();
+  super.dispose();
+}
+```
+
+Now, let's implement the play and pause logic. `onPlay` will start the animation from where it left off, and `onPause` will stop it and save its current progress.
+
+```dart
+// In _FadeInTextMeasureWidgetState
+
+@override
+void onPlay() {
+  _controller.forward(from: _animValue);
+}
+
+@override
+void onPause() {
+  _animValue = _controller.value;
+  _controller.stop();
+}
+```
+
+Now, we need to tell the `AnecdoteWidget` when this measure is complete so it can move to the next one. This is done via the `completionType` property on the `Measure`. There are two main approaches:
+
+**Declarative Completion**: The easy way. You let an audio source determine the duration.
 -   `MeasureCompletionType.voice`: The scene ends when the `voiceSource` finishes playing.
 -   `MeasureCompletionType.music`: The scene ends when its corresponding track in the `musicSource` playlist finishes.
 
 ```dart
-// From the anecdotes_catalog, this measure will end when its music track ends.
+// This measure will end when its music track ends.
 const WorldMapMeasure(
   countryCode: 'FR',
   completionType: MeasureCompletionType.music,
 )
 ```
 
-##### **Programmatic Completion**: The flexible way. You decide.
+**Programmatic Completion**: The flexible way. You decide when the scene is over.
 -   `MeasureCompletionType.custom`: You are in full control.
 -   In your `MeasureBaseState`, you must override the `resolveCompletionCustom()` method.
--   This method should return a `Future` that completes whenever your scene's work is done (e.g., an animation has finished, a timer has elapsed, or the user tapped a button).
--   Our `FadeInTextMeasureWidget` example from earlier used this approach with a `Completer`.
+-   This method should return a `Future` that completes whenever your scene's work is done.
+
+Our `FadeInTextMeasure` uses `completionType = MeasureCompletionType.custom` by default. We'll use the `Completer` we created earlier to signal completion. The `future` of the `Completer` (which completes when our fade animation ends) is returned by `resolveCompletionCustom`.
+
+```dart
+// In _FadeInTextMeasureWidgetState
+
+@override
+Future<void> resolveCompletionCustom() {
+  return _completer.future;
+}
+```
+
+Finally, the `build` method constructs the UI. We use a `FadeTransition` widget, driven by our `_controller`, to animate the opacity of the `Text` widget.
+
+```dart
+// In _FadeInTextMeasureWidgetState
+
+@override
+Widget build(BuildContext context) {
+  return Center(
+    child: FadeTransition(
+      opacity: _controller,
+      child: Text(
+        measure.text,
+        style: Theme.of(context).textTheme.headlineMedium,
+      ),
+    ),
+  );
+}
+```
 
 ### The `MeasureBuilderRegistry`: Tying it All Together
 
@@ -319,7 +361,6 @@ AnecdoteCarousel(
     AnotherStory(measures: [/*...*/]),
   ],
   measureBuilderRegistry: registry,
-  // You can also pass a musicPlayer, captionBuilder, etc.
 )
 ```
 
