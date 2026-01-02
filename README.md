@@ -370,6 +370,10 @@ You now have all the building blocks to create rich, engaging stories with Flutt
 
 ### Top contributors:
 
+<a href="https://github.com/Papi-Eruh/anecdotes/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Papi-Eruh/anecdotes" alt="contrib.rocks image" />
+</a>
+
 ## License
 
 Distributed under the MIT License. See `./LICENSE` for more information.
