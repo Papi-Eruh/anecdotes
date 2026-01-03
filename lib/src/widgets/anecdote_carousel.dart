@@ -1,8 +1,10 @@
 import 'dart:async';
 
-import 'package:anecdotes/anecdotes.dart';
+import 'package:anecdotes/src/internals/internals.dart';
+import 'package:anecdotes/src/models/models.dart';
+import 'package:anecdotes/src/widgets/anecdote_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:heart/heart.dart';
+import 'package:maestro/maestro.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Signature for a callback invoked when an [Anecdote] has finished playing.
@@ -164,17 +166,15 @@ class _AnecdoteCarouselState extends State<AnecdoteCarousel> {
               controller: _controllerByIndex[index],
               anecdote: anecdote,
               measureBuilderRegistry: widget.measureBuilderRegistry,
-              onReady: ifThen(
-                i: index == 0 && _providedFirstController == null,
-                t: _startFirstAnc,
+              onReady: (index == 0 && _providedFirstController == null).then(
+                _startFirstAnc,
               ),
               musicPlayer: _musicPlayer,
               musicBehavior: behaviorSnapshot.data,
               voicePlayerBuilder: widget.voicePlayerBuilder,
               loop: widget.loop,
-              onFinished: ifThen(
-                i: onAnecdoteFinished != null,
-                t: () => onAnecdoteFinished?.call(index, anecdote),
+              onFinished: (onAnecdoteFinished != null).then(
+                () => onAnecdoteFinished?.call(index, anecdote),
               ),
               pauseWidgetBuilder: widget.pauseWidgetBuilder,
               captionsAdapter: widget.captionsAdapter,

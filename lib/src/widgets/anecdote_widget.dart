@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:anecdotes/anecdotes.dart';
-import 'package:anecdotes/src/logger.dart';
+import 'package:anecdotes/src/internals/internals.dart';
+import 'package:anecdotes/src/models/models.dart';
 import 'package:anecdotes/src/widgets/anecdote_widget_impl.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:heart/heart.dart';
+import 'package:maestro/maestro.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -96,7 +96,7 @@ final class MeasureWidgetControllerImpl implements MeasureWidgetController {
 
   @override
   void addOnStart(VoidCallback? callback) {
-    _onStart = _onStart.chain(callback);
+    _onStart = _onStart.then(callback);
   }
 }
 
@@ -387,9 +387,8 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
   Widget build(BuildContext context) {
     final registry = widget.measureBuilderRegistry;
     return GestureDetector(
-      onTap: ifThen(
-        i: widget.isInteractive,
-        t: () => _ancStateSubject.add(_ancStateSubject.value.next),
+      onTap: widget.isInteractive.then(
+        () => _ancStateSubject.add(_ancStateSubject.value.next),
       ),
       child: StreamBuilder(
         stream: _cIndexSubject.map((index) {
@@ -413,12 +412,10 @@ class _AnecdoteWidgetState extends State<AnecdoteWidget>
               ...indexTurnList.mapIndexed((controllerIndex, tuple) {
                 final (measureIndex, turn, index) = tuple;
                 final measure = _measures[measureIndex];
-                final onReady = ifThen(
-                  i: index == _indexMeasureStart && !_isStarted,
-                  t: widget.onReady.chain(
-                    ifThen(i: _controller == null, t: _start),
-                  ),
-                );
+                final onReady = (index == _indexMeasureStart && !_isStarted)
+                    .then(
+                      widget.onReady.then((_controller == null).then(_start)),
+                    );
                 final isMeasurePausedStream = _cIndexSubject
                     .map((event) => event == index)
                     .distinct()
