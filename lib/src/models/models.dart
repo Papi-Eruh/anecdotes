@@ -196,11 +196,11 @@ abstract class FileSourceVisitor<T> {
 /// {@endtemplate}
 @immutable
 abstract final class FileSource {
-  /// Creates a [FileSource] from a bundled asset path.
-  factory FileSource.asset(String path) => AssetSource(path);
-
   /// {@macro file_source}
   const FileSource();
+
+  /// Creates a [FileSource] from a bundled asset path.
+  factory FileSource.asset(String path) => AssetSource(path);
 
   /// Accepts a [visitor] to perform an operation based on the concrete
   /// type of the [FileSource].
@@ -309,35 +309,51 @@ final class FutureBytesSource implements FileSource {
   }
 }
 
+/// {@template captions}
+/// Represents a single caption with its timing information.
+///
+/// A [Captions] object holds the text of a caption and the start and end
+/// times for its display, synchronized with an audio or video track.
+/// {@endtemplate}
 @immutable
 class Captions {
+  /// {@macro captions}
   const Captions({
     required this.text,
     required this.startTime,
     required this.endTime,
   });
 
-  /// 2. FromJson
-  /// Note le mapping manuel des clés qui remplace @JsonKey
+  /// Creates a [Captions] instance from a JSON map.
+  ///
+  /// The JSON map is expected to have the following keys:
+  /// - `word`: The caption text.
+  /// - `start_time`: The start time in seconds.
+  /// - `end_time`: The end time in seconds.
   factory Captions.fromJson(Map<String, dynamic> json) {
     return Captions(
       text: json['word'] as String,
-      // Utilisation de 'num' pour accepter à la fois int et double venant du JSON
       startTime: (json['start_time'] as num).toDouble(),
       endTime: (json['end_time'] as num).toDouble(),
     );
   }
+
+  /// The text content of the caption.
   final String text;
+
+  /// The time at which the caption should appear, in seconds.
   final double startTime;
+
+  /// The time at which the caption should disappear, in seconds.
   final double endTime;
 
-  /// Getter calculé (conservé tel quel)
+  /// The duration of the caption in milliseconds.
   int get ms {
     return ((endTime - startTime) * 1000).toInt();
   }
 
-  /// 1. CopyWith
-  /// Permet de créer une copie modifiée de l'objet
+  /// Creates a copy of this [Captions] object with the given fields replaced
+  /// with new values.
   Captions copyWith({
     String? text,
     double? startTime,
@@ -350,7 +366,7 @@ class Captions {
     );
   }
 
-  /// 3. ToJson
+  /// Converts this [Captions] instance to a JSON map.
   Map<String, dynamic> toJson() {
     return {
       'word': text,
@@ -359,13 +375,10 @@ class Captions {
     };
   }
 
-  /// 4. ToString (pour le debug)
   @override
   String toString() =>
       'Captions(text: $text, startTime: $startTime, endTime: $endTime)';
 
-  /// 5. Égalité (Operator ==)
-  /// Nécessaire pour comparer deux instances
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -376,8 +389,6 @@ class Captions {
         other.endTime == endTime;
   }
 
-  /// 6. HashCode
-  /// Nécessaire si tu utilises ces objets dans un Set ou comme clé de Map
   @override
   int get hashCode => text.hashCode ^ startTime.hashCode ^ endTime.hashCode;
 }

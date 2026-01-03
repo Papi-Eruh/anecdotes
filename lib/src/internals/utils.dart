@@ -9,25 +9,64 @@ typedef VoidCallback = void Function();
 
 typedef Json = Map<String, dynamic>;
 
+/// An extension on [Iterable] to add a `toMapItemKey` method.
 extension ToMapIterableExtension<E> on Iterable<E> {
+  /// Creates a [Map] from an iterable, using the items as keys.
+  ///
+  /// The [toValue] function is applied to each item to produce the
+  /// corresponding value.
+  ///
+  /// ```dart
+  /// final numbers = [1, 2, 3];
+  /// final map = numbers.toMapItemKey((i) => i * 2);
+  /// print(map); // {1: 2, 2: 4, 3: 6}
+  /// ```
   Map<E, T> toMapItemKey<T>(T Function(E e) toValue) {
     return Map.fromEntries(map((e) => MapEntry(e, toValue(e))));
   }
 }
 
+/// An extension on [bool] to provide conditional value resolution.
 extension BoolExtension on bool {
-  /// Retourne [value] si true, sinon null.
-  /// (Version Eager - pour valeurs simples)
+  /// Returns [value] if this boolean is `true`, otherwise returns `null`.
+  ///
+  /// This is an eager version, suitable for simple, pre-computed values.
+  ///
+  /// ```dart
+  /// final result = (2 > 1).then('Success'); // 'Success'
+  /// final noResult = (1 > 2).then('Failure'); // null
+  /// ```
   T? then<T>(T value) => this ? value : null;
 
-  /// Retourne le résultat de [provider] si true, sinon null.
-  /// (Version Lazy - pour calculs ou objets complexes)
+  /// Executes [provider] and returns its result if this boolean is `true`,
+  /// otherwise returns `null`.
+  ///
+  /// This is a lazy version, suitable for computations or creating complex
+  /// objects, as the [provider] is only called when needed.
+  ///
+  /// ```dart
+  /// final result = (2 > 1).thenDo(() => 'Success'); // 'Success'
+  /// final noResult = (1 > 2).thenDo(() => 'Failure'); // null
+  /// ```
   T? thenDo<T>(T Function() provider) => this ? provider() : null;
 }
 
+/// An extension on [VoidCallback?] to allow chaining callbacks.
 extension ChainingCallback on VoidCallback? {
-  /// Chain this with another [callback].
-  /// Returns null if both are null (preserving disabled states in UI).
+  /// Chains this callback with another [callback].
+  ///
+  /// Returns a new [VoidCallback] that executes this callback (if it's not
+  /// `null`), followed by the other [callback] (if it's not `null`).
+  ///
+  /// If both callbacks are `null`, this method returns `null`, which is
+  /// useful for preserving disabled states in UI components.
+  ///
+  /// ```dart
+  /// VoidCallback? first = () => print('First');
+  /// VoidCallback? second = () => print('Second');
+  /// final chained = first.then(second);
+  /// chained?.call(); // Prints 'First', then 'Second'
+  /// ```
   VoidCallback? then(VoidCallback? callback) {
     if (this == null && callback == null) return null;
 

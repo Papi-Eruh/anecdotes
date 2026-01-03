@@ -18,8 +18,16 @@ typedef AnecdoteCallback = void Function(int index, Anecdote anecdote);
 /// This widget allows users to navigate through multiple anecdotes,
 /// either vertically or horizontally.
 /// Each anecdote manages its own controller, audio playback, and visuals.
+///
+/// ```dart
+/// AnecdoteCarousel(
+///   anecdotes: myAnecdotes,
+///   measureBuilderRegistry: myMeasureBuilderRegistry,
+///   onEnd: () => print('Finished all anecdotes!'),
+/// )
+/// ```
 class AnecdoteCarousel extends StatefulWidget {
-  /// const constructor
+  /// Creates a carousel for displaying anecdotes.
   const AnecdoteCarousel({
     required this.anecdotes,
     required this.measureBuilderRegistry,
@@ -42,54 +50,80 @@ class AnecdoteCarousel extends StatefulWidget {
 
   /// Optional controller for the first anecdote.
   ///
-  /// If not provided, a new [AnecdoteWidgetController] will be created.
+  /// If not provided, a new [AnecdoteWidgetController] will be created
+  /// internally.
   final AnecdoteWidgetController? firstController;
 
-  /// The list of anecdotes to display in the carousel.
+  /// The ordered list of anecdotes to be displayed in the carousel.
   final List<Anecdote> anecdotes;
 
-  /// Registry that provides builder functions for different [Measure] types.
+  /// A registry that provides builder functions for different types of
+  /// [Measure].
+  ///
+  /// This allows for custom rendering of different measure types.
   final MeasureBuilderRegistry measureBuilderRegistry;
 
-  /// Adapter used to parse caption data from files.
+  /// An adapter responsible for parsing caption data from [FileSource].
+  ///
+  /// Defaults to [JsonCaptionsAdapter].
   final CaptionsAdapter captionsAdapter;
 
-  /// Defines the scroll direction of the carousel (vertical or horizontal).
+  /// The direction in which the carousel scrolls.
+  ///
+  /// Defaults to [Axis.vertical].
   final Axis scrollDirection;
 
-  /// Whether anecdotes should loop when reaching the end.
+  /// Determines whether the carousel should loop back to the beginning after
+  /// the last anecdote.
+  ///
+  /// Defaults to `false`.
   final bool loop;
 
-  /// Whether the anecdotes are interactive (e.g., respond to user input).
+  /// Determines whether the anecdotes are interactive.
+  ///
+  /// If `true`, user interactions (like taps) can control playback.
+  /// Defaults to `true`.
   final bool isInteractive;
 
-  /// The shared [MusicPlayer] instance used for background or ambient sounds.
+  /// A shared [MusicPlayer] instance for handling background music across
+  /// anecdotes.
   final MusicPlayer? musicPlayer;
 
-  /// Called when all anecdotes have finished playing.
+  /// A callback that is invoked when the user reaches the end of the carousel.
+  ///
+  /// This is typically used to trigger navigation or other actions when all
+  /// anecdotes have been viewed.
   final VoidCallback? onEnd;
 
-  /// Whether to add an extra empty child [SizedBox.shrink] at the end
-  /// of the carousel to allow triggering [onEnd] when it is reached.
-  final bool hasEndChild;
-
-  /// Callback invoked each time an individual anecdote finishes.
+  /// A callback that is invoked each time an individual anecdote finishes
+  /// playing.
   final AnecdoteCallback? onAnecdoteFinished;
 
-  /// Builder for creating a custom voice player.
+  /// An optional builder for creating a custom voice player widget.
   final VoicePlayerBuilder? voicePlayerBuilder;
 
-  /// Builder for creating a custom pause widget overlay.
+  /// An optional builder for creating a custom widget to be displayed when
+  /// playback is paused.
   final PauseWidgetBuilder? pauseWidgetBuilder;
 
-  /// Builder for rendering custom caption widgets.
+  /// An optional builder for rendering custom caption widgets.
   final CaptionsWidgetBuilder? captionsWidgetBuilder;
 
-  /// Page controller used in the [PageView]
+  /// An optional controller for the underlying [PageView].
+  ///
+  /// If not provided, a [PageController] will be created internally.
   final PageController? pageController;
 
-  /// If true, show the captions.
+  /// Determines whether captions should be visible.
+  ///
+  /// Defaults to `true`.
   final bool isCaptionsVisible;
+
+  /// If `true`, an extra empty child is added at the end of the carousel.
+  ///
+  /// This allows the [onEnd] callback to be triggered when the user scrolls
+  /// to the final page. Defaults to `false`.
+  final bool hasEndChild;
 
   @override
   State<AnecdoteCarousel> createState() => _AnecdoteCarouselState();

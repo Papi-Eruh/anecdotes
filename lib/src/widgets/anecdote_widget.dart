@@ -33,22 +33,27 @@ typedef VoicePlayerBuilder = AudioPlayer Function();
 typedef MeasureWidgetBuilder<M extends Measure> =
     MeasureBaseWidget Function(BuildContext context, M measure);
 
+/// {@template captions_adapter}
 /// A base class for adapters that convert raw file content
 /// (such as JSON, XML, or plain text) into a list of [Captions].
-// ignore: one_member_abstracts
+/// {@endtemplate}
 abstract class CaptionsAdapter {
+  /// {@macro captions_adapter}
+  const CaptionsAdapter();
+
   /// Converts the given [fileContent] into a list of [Captions].
-  /// Implementations should parse the provided [fileContent]
-  /// and return a list of captions with their corresponding
-  /// start and end times.
+  ///
+  /// Implementations should parse the provided string and return a list of
+  /// captions with their corresponding start and end times.
   List<Captions> fromFileContent(String fileContent);
 }
 
-/// Simple JSON implementation of [CaptionsAdapter].
-/// When the file content JSON are exactly well formated
-/// for [Captions.fromJson].
+/// A [CaptionsAdapter] for parsing JSON-formatted caption files.
+///
+/// This adapter assumes the file content is a JSON array where each object
+/// can be parsed by [Captions.fromJson].
 class JsonCaptionsAdapter implements CaptionsAdapter {
-  /// default const constructor
+  /// Creates an adapter for JSON-formatted captions.
   const JsonCaptionsAdapter();
 
   @override
@@ -61,28 +66,36 @@ class JsonCaptionsAdapter implements CaptionsAdapter {
   }
 }
 
-/// Controller of [AnecdoteWidget] allowing user
-/// to defer the start of the [AnecdoteWidget].
+/// Controls an [AnecdoteWidget] to allow deferred starting of playback.
+///
+/// This controller can be passed to an [AnecdoteWidget] to trigger the
+/// start of the anecdote externally.
 abstract final class AnecdoteWidgetController {
+  /// Creates a new [AnecdoteWidgetController].
   factory AnecdoteWidgetController() => _AncWidgetController();
 
-  /// true when the controller has been started.
+  /// Returns `true` if the [start] method has been called.
   bool get isStarted;
 
   //
   //ignore: avoid_setters_without_getters
   set _onStart(VoidCallback callback);
 
-  /// Start anecdote & so its first measure.
+  /// Starts the anecdote playback.
+  ///
+  /// If the anecdote is already started, this method has no effect.
   void start();
 }
 
-/// Controller of a measure widget.
+/// Controls a [MeasureBaseWidget] to manage its lifecycle.
+///
+/// This controller is provided internally to each measure widget and allows
+/// for adding callbacks to be executed when the measure starts.
 abstract final class MeasureWidgetController {
-  /// Set what's triggering on start
+  /// Adds a callback to be executed when the measure starts.
   void addOnStart(VoidCallback? callback);
 
-  /// Start measure
+  /// Starts the measure.
   void start();
 }
 
@@ -122,6 +135,15 @@ final class _AncWidgetController implements AnecdoteWidgetController {
 ///
 /// This allows you to decouple the creation logic of measure widgets
 /// from their usage, similar to a dependency injector or factory pattern.
+///
+/// ```dart
+/// final registry = MeasureBuilderRegistry()
+///   ..register<MyMeasure>((context, measure) => MyMeasureWidget(measure))
+///   ..register<AnotherMeasure>((context, measure) => AnotherMeasureWidget(measure));
+///
+/// final measure = MyMeasure();
+/// final widget = registry.build(context, measure); // Returns a MyMeasureWidget
+/// ```
 abstract final class MeasureBuilderRegistry {
   /// Creates a new instance of the default implementation.
   factory MeasureBuilderRegistry() => _MeasureBuilderRegistry();
@@ -167,15 +189,31 @@ final class _MeasureBuilderRegistry implements MeasureBuilderRegistry {
   }
 }
 
-/// A widget that displays and manages the playback of an anecdote.
+/// A widget that displays and manages the playback of a single [Anecdote].
 ///
-/// The [AnecdoteWidget] orchestrates multiple [Measure]s, music and
-/// voice playback, captions display, and interactivity.
+/// The [AnecdoteWidget] orchestrates the sequence of [Measure]s, handles
+/// music and voice-over playback, displays captions, and manages user
+/// interactions. It is highly customizable through various builders and
+/// adapters, allowing developers to define how each component of the
+/// anecdote is rendered and behaves.
 ///
-/// It is highly customizable through various builders and adapters,
-/// allowing you to define how each part of the anecdote is rendered.
+/// Use this widget to display a single, self-contained anecdote. For
+/// displaying a series of anecdotes, consider using [AnecdoteCarousel].
+///
+/// ```dart
+/// final myAnecdote = MyAnecdote();
+/// final myRegistry = MeasureBuilderRegistry()
+///   ..register<MyMeasure>((context, measure) => MyMeasureWidget(measure));
+///
+/// AnecdoteWidget(
+///   anecdote: myAnecdote,
+///   measureBuilderRegistry: myRegistry,
+///   musicPlayer: myMusicPlayer,
+///   onFinished: () => print('Anecdote finished!'),
+/// );
+/// ```
 class AnecdoteWidget extends StatefulWidget {
-  /// base constructor
+  /// Creates a widget to display an anecdote.
   const AnecdoteWidget({
     required this.anecdote,
     required this.measureBuilderRegistry,
@@ -196,59 +234,72 @@ class AnecdoteWidget extends StatefulWidget {
     AncMusicBehavior? musicBehavior,
   }) : musicBehavior = musicBehavior ?? AncMusicBehavior.scoped;
 
-  /// The anecdote to display, which contains a sequence of measures.
+  /// The [Anecdote] to be displayed, containing a sequence of [Measure]s.
   final Anecdote anecdote;
 
-  /// Registry used to resolve the appropriate widget builder
-  /// for each [Measure] subtype.
+  /// The registry used to resolve the appropriate widget builder for each
+  /// [Measure] subtype.
   final MeasureBuilderRegistry measureBuilderRegistry;
 
-  /// Controller allowing external control over the anecdote playback.
+  /// An optional controller to manage the anecdote's playback externally.
   final AnecdoteWidgetController? controller;
 
   /// The [MusicPlayer] instance responsible for handling background music.
   final MusicPlayer? musicPlayer;
 
-  /// Builder used to create an [AudioPlayer] for measure narration.
+  /// An optional builder for creating a custom [AudioPlayer] for voice-overs.
   final VoicePlayerBuilder? voicePlayerBuilder;
 
-  /// Adapter used to parse captions from a file or other source.
+  /// The adapter used to parse captions from a file source.
   ///
   /// Defaults to [JsonCaptionsAdapter].
   final CaptionsAdapter captionsAdapter;
 
-  /// Optional builder to customize how captions are displayed.
+  /// An optional builder to customize the display of captions.
   ///
-  /// If null, captions will not be displayed.
-  /// See [CaptionsWidgetBuilder] for more details.
+  /// If not provided, captions will not be displayed.
   final CaptionsWidgetBuilder? captionsWidgetBuilder;
 
-  /// Optional builder to customize the widget shown when playback is paused.
+  /// An optional builder to customize the widget shown when playback is paused.
   final PauseWidgetBuilder? pauseWidgetBuilder;
 
-  /// Called when the first [Measure] is ready to be displayed.
+  /// A callback invoked when the first [Measure] is ready to be displayed.
   final VoidCallback? onReady;
 
-  /// Called when the anecdote playback finishes.
+  /// A callback invoked when the anecdote has finished playing.
   final VoidCallback? onFinished;
 
-  /// Whether the anecdote should loop after finishing.
+  /// Determines whether the anecdote should loop back to the beginning after
+  /// finishing.
+  ///
+  /// Defaults to `false`.
   final bool loop;
 
-  /// Whether the user can interact with the anecdote.
+  /// Determines whether user interactions (e.g., taps) can control playback.
+  ///
+  /// Defaults to `true`.
   final bool isInteractive;
 
-  /// Defines how the music should behave across measures.
+  /// Defines how background music should behave when the anecdote is active.
+  ///
+  /// See [AncMusicBehavior] for available options. Defaults to
+  /// [AncMusicBehavior.scoped].
   final AncMusicBehavior musicBehavior;
 
-  /// If true, the device screen will stay awake.
+  /// If `true`, the device screen will be kept awake during playback.
+  ///
+  /// Defaults to `true`.
   final bool isWakelockedManaged;
 
-  /// If true, show the captions.
+  /// Determines whether captions should be visible.
+  ///
+  /// Defaults to `true`.
   final bool isCaptionsVisible;
 
-  /// The index of [Anecdote.measures] we'll start with.
-  /// Default to 0
+  /// The index of the measure in [Anecdote.measures] at which to start
+  /// playback.
+  ///
+  /// Defaults to `0`.
   final int indexMeasureStart;
 
   @override
@@ -483,7 +534,14 @@ abstract class MeasureBaseWidget<M extends Measure> extends StatefulWidget {
 }
 
 /// Base state class for widgets extending [MeasureBaseWidget].
-/// Provides convenient access to the typed measure instance.
+///
+/// This class provides the core logic for managing a measure's lifecycle,
+/// including handling pause/play states, completion, and providing access
+/// to the measure's data.
+///
+/// When extending this class, you must implement [prepareBeforeReady] and
+/// [onPause]/[onPlay]. If you use [MeasureCompletionType.custom], you must
+/// also override [resolveCompletionCustom].
 abstract class MeasureBaseState<
   M extends Measure,
   W extends MeasureBaseWidget<M>
@@ -543,20 +601,29 @@ abstract class MeasureBaseState<
     super.dispose();
   }
 
-  /// When this future is completed, this measure is considered as ready.
-  /// So, this widget is ready to be started.
+  /// Prepares the measure for playback.
+  ///
+  /// This method is called before the measure is marked as "ready".
+  /// You can use it to load any necessary assets or perform setup.
+  /// The future should complete when the measure is ready to be started.
   Future<void> prepareBeforeReady();
 
-  /// When this future is completed, the measure is considered as finished.
-  /// This will lead to go next measure or finish the anecdote.
+  /// Determines when the measure is considered finished.
+  ///
+  /// This method is responsible for awaiting the completion signal based on
+  /// the measure's [Measure.completionType].
   Future<void> resolveCompletion() async {
     if (_completioner == null) return resolveCompletionCustom();
     await _completioner?.resolveCompletion();
   }
 
-  /// Override this if your measure uses [MeasureCompletionType.custom].
+  /// Defines the custom completion logic for a measure.
   ///
-  /// You should return a Future that completes when the slide is finished.
+  /// This method must be overridden if the measure's [Measure.completionType]
+  /// is set to [MeasureCompletionType.custom]. The returned [Future] should
+  /// complete when the measure is considered finished.
+  ///
+  /// Throws [UnimplementedError] if not overridden.
   Future<void> resolveCompletionCustom() {
     throw UnimplementedError(
       'You selected MeasureCompletionType.custom '
@@ -564,18 +631,28 @@ abstract class MeasureBaseState<
     );
   }
 
-  /// Called when playback is paused.
+  /// Called when the anecdote playback is paused.
+  ///
+  /// Use this method to pause any animations or processes in your measure
+  /// widget.
   void onPause();
 
-  /// Called when playback is resumed.
+  /// Called when the anecdote playback is resumed from a paused state.
+  ///
+  /// Use this method to resume any animations or processes in your measure
+  /// widget.
   void onPlay();
 
-  /// Called when the voice-over duration is known.
+  /// Called when the duration of the voice-over is known.
+  ///
+  /// You can override this method to adapt your UI to the voice-over's length.
   void onVoiceDurationChanged(Duration duration) {
     // Override if UI needs to adapt to voice length.
   }
 
-  /// Called when the measure music duration is known.
+  /// Called when the duration of the measure's background music is known.
+  ///
+  /// You can override this method to adapt your UI to the music's length.
   void onMusicDurationChanged(Duration duration) {
     // Override if UI needs to adapt to measure music length.
   }

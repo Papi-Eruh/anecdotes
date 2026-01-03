@@ -5,7 +5,14 @@ import 'package:anecdotes/src/internals/internals.dart';
 import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
 
+/// A widget that decorates a [Measure] widget with additional functionality.
+///
+/// The [MeasureDecoratorWidget] is responsible for managing the voice-over
+/// playback, captions, and pause/play state for a single measure. It wraps
+/// the actual measure widget built by the [MeasureBuilderRegistry] and
+/// provides it with the necessary context via [MeasureWidgetProvider].
 class MeasureDecoratorWidget extends StatefulWidget {
+  /// Creates a [MeasureDecoratorWidget].
   const MeasureDecoratorWidget({
     required this.measure,
     required this.registry,
@@ -21,16 +28,38 @@ class MeasureDecoratorWidget extends StatefulWidget {
     this.isCaptionsVisible = true,
   });
 
+  /// The [Measure] instance to be displayed.
   final Measure measure;
+
+  /// The registry used to build the widget for the [measure].
   final MeasureBuilderRegistry registry;
+
+  /// A callback invoked when the measure is ready to be displayed.
   final VoidCallback? onReady;
+
+  /// A callback invoked when the measure has finished playing.
   final VoidCallback onFinished;
+
+  /// The controller for managing the measure's lifecycle.
   final MeasureWidgetController controller;
+
+  /// An optional builder for customizing the display of captions.
   final CaptionsWidgetBuilder? captionsWidgetBuilder;
+
+  /// The adapter used to parse captions from a file source.
   final CaptionsAdapter captionsAdapter;
+
+  /// An optional builder for creating a custom [AudioPlayer] for voice-overs.
   final VoicePlayerBuilder? voicePlayerBuilder;
+
+  /// A stream that indicates whether the anecdote is currently paused.
   final Stream<bool> isPausedStream;
+
+  /// A stream that provides the duration of the background music for this
+  /// measure.
   final Stream<Duration?>? musicDurationStream;
+
+  /// Determines whether captions should be visible.
   final bool isCaptionsVisible;
 
   @override
@@ -162,7 +191,13 @@ class _MeasureDecoratorWidgetState extends State<MeasureDecoratorWidget> {
   }
 }
 
+/// An [InheritedWidget] that provides measure-specific data to its descendants.
+///
+/// The [MeasureWidgetProvider] is used by [MeasureBaseState] to access
+/// callbacks and streams related to the current measure's lifecycle, such as
+/// `onReady`, `onFinished`, and pause/play events.
 class MeasureWidgetProvider extends InheritedWidget {
+  /// Creates a [MeasureWidgetProvider].
   const MeasureWidgetProvider({
     required super.child,
     required this.onReady,
@@ -175,14 +210,28 @@ class MeasureWidgetProvider extends InheritedWidget {
     this.voiceDurationFuture,
   });
 
+  /// A callback to be called when the measure is ready.
   final VoidCallback onReady;
+
+  /// A callback to be called when the measure is finished.
   final VoidCallback onFinished;
+
+  /// A stream that emits `true` when paused and `false` when playing.
   final Stream<bool> isPausedStream;
+
+  /// The controller for the current measure widget.
   final MeasureWidgetController controller;
+
+  /// A stream that emits when the voice-over playback is completed.
   final Stream<void>? voiceCompletedStream;
+
+  /// A future that completes with the duration of the voice-over.
   final Future<Duration>? voiceDurationFuture;
+
+  /// A stream that provides the duration of the background music.
   final Stream<Duration?>? musicDurationStream;
 
+  /// Retrieves the nearest [MeasureWidgetProvider] ancestor.
   static MeasureWidgetProvider of(BuildContext context) {
     final result = context
         .dependOnInheritedWidgetOfExactType<MeasureWidgetProvider>();
@@ -196,44 +245,63 @@ class MeasureWidgetProvider extends InheritedWidget {
   }
 }
 
-/// Helper class to mutualize logic of our measure completion mixins.
+/// A helper class for managing completion based on a stream event.
+///
+/// This class simplifies the logic for awaiting the first event from a stream
+/// and cleaning up the subscription.
 class MeasureStreamCompletionHelper {
-  /// constructor
+  /// Creates a [MeasureStreamCompletionHelper] for the given [stream].
   MeasureStreamCompletionHelper(this.stream);
 
-  /// Completion stream
+  /// The stream to listen to for a completion event.
   final Stream<void>? stream;
 
   StreamSubscription<void>? _sub;
 
-  /// Returns a future once the stream has first emitted.
+  /// Returns a [Future] that completes when the [stream] emits its first event.
   Future<void> resolveCompletion() {
     final completer = Completer<void>();
     _sub = stream?.listen((_) {
+      if (completer.isCompleted) return;
       completer.complete();
       unawaited(_sub?.cancel());
     });
     return completer.future;
   }
 
-  /// Dispose allocated resources from this.
+  /// Cancels the stream subscription and cleans up resources.
   void dispose() => unawaited(_sub?.cancel());
 }
 
+/// An interface for a controller that manages a stream of captions.
+///
+/// This controller is responsible for loading caption data, parsing it, and
+/// emitting caption text at the correct time.
 abstract class CaptionsStreamController {
+  /// The stream of caption text. Emits `null` when no caption is active.
   Stream<String?> get stream;
 
+  /// Loads the caption data from the source.
   Future<void> load();
 
+  /// Closes the controller and its underlying stream.
   Future<void> close();
 
+  /// Starts emitting captions based on their timing.
   Future<void> start();
 
+  /// Pauses the emission of captions.
   Future<void> pause();
 
+  /// Resumes the emission of captions from where it was paused.
   Future<void> resume();
 }
 
+/// The default implementation of [CaptionsStreamController].
+///
+/// This controller reads caption data from a [FileSource], parses it using a
+/// [CaptionsAdapter], and uses [Future.delayed] to emit caption text
+/// according to the timing information in the [Captions] objects.
 class CaptionsStreamControllerImpl implements CaptionsStreamController {
   CaptionsStreamControllerImpl({
     required this.adapter,
@@ -299,6 +367,12 @@ class CaptionsStreamControllerImpl implements CaptionsStreamController {
   }
 }
 
+/// A [MeasureCompletioner] that finishes a measure when the background music
+/// for that measure completes.
+///
+/// This completioner listens to the [durationStream] and completes when the
+/// duration transitions from a non-null value to `null`, which indicates
+/// that the music segment for the measure has finished playing.
 class MeasureMusicCompletioner implements MeasureCompletioner {
   MeasureMusicCompletioner({required this.durationStream});
 
@@ -320,6 +394,11 @@ class MeasureMusicCompletioner implements MeasureCompletioner {
   }
 }
 
+/// A [MeasureCompletioner] that finishes a measure when the voice-over
+/// narration completes.
+///
+/// This completioner listens to the [completedStream] from an [AudioPlayer]
+/// and completes when the stream emits an event.
 class MeasureVoiceCompletioner implements MeasureCompletioner {
   MeasureVoiceCompletioner({this.completedStream});
 
