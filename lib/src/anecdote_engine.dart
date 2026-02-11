@@ -18,7 +18,11 @@ abstract interface class AnecdoteEngine {
   ///
   /// This method triggers the preloading process for the starting measure (at [startIndex])
   /// and potentially the subsequent measure to ensure smooth playback.
-  Future<void> load(Anecdote anecdote, {int startIndex = 0});
+  Future<void> load(
+    Anecdote anecdote, {
+    int startIndex = 0,
+    AnecdoteStatus initialStatus = AnecdoteStatus.ready,
+  });
 
   /// Starts or resumes playback.
   void play();

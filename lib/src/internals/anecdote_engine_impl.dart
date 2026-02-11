@@ -38,8 +38,13 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
   Future<void> load(
     Anecdote anecdote, {
     int startIndex = 0,
-    AnecdoteStatus status = AnecdoteStatus.ready,
+    AnecdoteStatus initialStatus = AnecdoteStatus.ready,
   }) async {
+    assert(
+      initialStatus == AnecdoteStatus.ready ||
+          initialStatus == AnecdoteStatus.playing,
+      'todo',
+    );
     _cleanupAllRunners();
     _emitState(
       status: AnecdoteStatus.loading,
@@ -48,7 +53,7 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
     );
 
     await Future.wait([_loadMusic(anecdote), _loadVoices(anecdote)]);
-    await _jumpTo(startIndex, initialStatus: status);
+    await _jumpTo(startIndex, initialStatus: initialStatus);
   }
 
   Future<void> _loadMusic(Anecdote anecdote) async {
@@ -172,6 +177,7 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
     }
 
     if (runner == null) return; //TODO: throw
+    //TODO: is it normal to start before emitState ?
     if (initialStatus != AnecdoteStatus.ready) {
       runner.start();
       _musicPlayer?.play();
