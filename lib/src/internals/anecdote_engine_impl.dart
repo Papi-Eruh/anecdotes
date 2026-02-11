@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:anecdotes/anecdotes.dart';
-import 'package:anecdotes/src/internals/anecdote_context.dart';
 import 'package:rxdart/rxdart.dart';
 
 class AnecdoteEngineImpl implements AnecdoteEngine {

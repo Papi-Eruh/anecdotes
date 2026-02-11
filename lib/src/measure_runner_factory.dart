@@ -1,4 +1,4 @@
-import 'package:anecdotes/src/internals/anecdote_context.dart';
+import 'package:anecdotes/src/anecdote_context.dart';
 import 'package:anecdotes/src/measure_runner.dart';
 import 'package:anecdotes/src/models/measure.dart';
 
