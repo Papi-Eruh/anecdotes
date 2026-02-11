@@ -1,16 +1,11 @@
 import 'dart:async';
 
-import 'package:anecdotes/src/models/measure.dart';
-
 /// Manages the lifecycle and logic of a single `Measure`.
 ///
 /// This interface strictly separates the asset loading phase ([prepare]) from
 /// the execution phase ([start]), allowing the engine to buffer future measures
 /// while the current one is playing.
 abstract interface class MeasureRunner {
-  /// The raw data model of the measure.
-  Measure get measure;
-
   /// Loads necessary assets (Voice-over, JSON Captions, Images, etc.).
   ///
   /// The Engine calls this method on the "Next" measure while the "Current"

@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:anecdotes/anecdotes.dart';
 import 'package:rxdart/rxdart.dart';
 
-abstract class BaseMeasureRunner<M extends Measure> implements MeasureRunner {
-  final M _measure;
+abstract class BaseMeasureRunner implements MeasureRunner {
+  final Measure _measure;
   final CaptionsController? _captionsController;
   final AudioPlayer? _voicePlayer;
   final AudioPlayer? _musicPlayer;
@@ -14,7 +14,7 @@ abstract class BaseMeasureRunner<M extends Measure> implements MeasureRunner {
   StreamSubscription? _musicSubscription;
 
   BaseMeasureRunner({
-    required M measure,
+    required Measure measure,
     CaptionsController? captionsController,
     AudioPlayer? voicePlayer,
     AudioPlayer? musicPlayer,
@@ -22,9 +22,6 @@ abstract class BaseMeasureRunner<M extends Measure> implements MeasureRunner {
        _captionsController = captionsController,
        _voicePlayer = voicePlayer,
        _musicPlayer = musicPlayer;
-
-  @override
-  M get measure => _measure;
 
   @override
   Stream<void> get onCompleted => _completedController.stream;
@@ -73,7 +70,7 @@ abstract class BaseMeasureRunner<M extends Measure> implements MeasureRunner {
 
   Future<void> complete() async {
     final completer = Completer<void>();
-    final completionType = measure.completionType;
+    final completionType = _measure.completionType;
 
     switch (completionType) {
       case MeasureCompletionType.voice:
