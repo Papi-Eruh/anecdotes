@@ -4,6 +4,7 @@
 library;
 
 export 'src/anecdote_engine.dart';
+export 'src/api.dart';
 export 'src/audio/audio_player.dart';
 export 'src/audio/audio_source.dart';
 export 'src/audio/audio_source_visitor.dart';
