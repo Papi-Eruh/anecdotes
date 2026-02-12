@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:anecdotes/anecdotes.dart';
+import 'package:anecdotes/src/internals/captions_controller.dart';
 
 class CaptionsControllerImpl implements CaptionsController {
   final AudioPlayer _voicePlayer;

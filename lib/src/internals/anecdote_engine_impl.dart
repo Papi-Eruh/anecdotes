@@ -1,38 +1,36 @@
 import 'dart:async';
 
 import 'package:anecdotes/anecdotes.dart';
+import 'package:anecdotes/src/internals/captions_controller.dart';
+import 'package:anecdotes/src/internals/measure_narrator.dart';
+import 'package:anecdotes/src/internals/measure_narrator_impl.dart';
 import 'package:rxdart/rxdart.dart';
 
 class AnecdoteEngineImpl implements AnecdoteEngine {
-  final MeasureRunnerFactory _runnerFactory;
   final AudioPlayer? _musicPlayer;
   final AudioPlayer? _voicePlayer;
   final CaptionsController? _captionsController;
 
   final BehaviorSubject<AnecdoteState> _stateSubject;
-  final Map<int, MeasureRunner> _activeRunners = {};
-  final Map<int, Future<MeasureRunner>> _loadingRunners = {};
+  final Map<int, MeasureNarrator> _narratorByMeasureIndex = {};
 
   StreamSubscription<void>? _currentMeasureSubscription;
 
   AnecdoteEngineImpl({
-    required MeasureRunnerFactory runnerFactory,
     AudioPlayer? musicPlayer,
     AudioPlayer? voicePlayer,
     CaptionsController? captionsController,
-  }) : _runnerFactory = runnerFactory,
-       _musicPlayer = musicPlayer,
+  }) : _musicPlayer = musicPlayer,
        _voicePlayer = voicePlayer,
        _captionsController = captionsController,
        _stateSubject = BehaviorSubject.seeded(
          const AnecdoteState(index: 0, status: AnecdoteStatus.idle),
        );
 
-  @override
-  Stream<AnecdoteState> get stateStream => _stateSubject.stream;
+  AnecdoteState get _currentState => _stateSubject.value;
 
   @override
-  AnecdoteState get currentState => _stateSubject.value;
+  Stream<AnecdoteState> get stateStream => _stateSubject.stream;
 
   @override
   Future<void> load(
@@ -45,7 +43,7 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
           initialStatus == AnecdoteStatus.playing,
       'todo',
     );
-    _cleanupAllRunners();
+    _disposeAnecdote();
     _emitState(
       status: AnecdoteStatus.loading,
       index: startIndex,
@@ -53,7 +51,7 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
     );
 
     await Future.wait([_loadMusic(anecdote), _loadVoices(anecdote)]);
-    await _jumpTo(startIndex, initialStatus: initialStatus);
+    _jumpTo(startIndex, initialStatus: initialStatus);
   }
 
   Future<void> _loadMusic(Anecdote anecdote) async {
@@ -88,9 +86,9 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
 
   @override
   void play() {
-    final state = currentState;
+    final state = _currentState;
     if (state.currentMeasure == null) return;
-    final runner = _activeRunners[state.index];
+    final runner = _narratorByMeasureIndex[state.index];
     if (runner != null) {
       _musicPlayer?.play();
       runner.play();
@@ -100,135 +98,125 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
 
   @override
   void pause() {
-    final index = currentState.index;
+    final index = _currentState.index;
     _musicPlayer?.pause();
-    _activeRunners[index]?.pause();
+    _narratorByMeasureIndex[index]?.pause();
     _emitState(status: AnecdoteStatus.paused);
   }
 
   @override
   void dispose() {
-    _cleanupAllRunners();
+    _disposeAnecdote();
     _stateSubject.close();
   }
 
-  void _cleanupAllRunners() {
+  void _disposeAnecdote() {
     _currentMeasureSubscription?.cancel();
     _musicPlayer?.pause();
-    for (final runner in _activeRunners.values) {
-      runner.stop();
+    _voicePlayer?.pause();
+    _captionsController?.stop();
+    for (final runner in _narratorByMeasureIndex.values) {
+      runner.dispose();
     }
-    _activeRunners.clear();
-    _loadingRunners.clear();
+    _narratorByMeasureIndex.clear();
   }
 
   @override
-  Future<void> next() async {
-    final anecdote = currentState.anecdote;
+  void next() {
+    final anecdote = _currentState.anecdote;
     if (anecdote == null) return;
 
-    final nextIndex = currentState.index + 1;
+    final nextIndex = _currentState.index + 1;
     final totalMeasures = anecdote.measures.length;
 
     if (nextIndex >= totalMeasures) {
-      if (currentState.isLooping) {
-        await _jumpTo(0);
+      if (_currentState.isLooping) {
+        _jumpTo(0);
       } else {
         _emitState(status: AnecdoteStatus.finished);
         _musicPlayer?.pause();
       }
       return;
     }
-    await _jumpTo(nextIndex);
+    _jumpTo(nextIndex);
   }
 
   @override
-  Future<void> previous() async {
-    final prevIndex = currentState.index - 1;
+  void previous() async {
+    final prevIndex = _currentState.index - 1;
     if (prevIndex >= 0) {
-      await _jumpTo(prevIndex);
+      _jumpTo(prevIndex);
     }
   }
 
   @override
-  Future<void> jumpTo(int index) async {
-    if (index < 0 || index >= currentState.measureCount) throw StateError('');
-    await _jumpTo(index);
+  void jumpTo(int measureIndex) async {
+    if (measureIndex < 0 || measureIndex >= _currentState.measureCount) {
+      throw StateError('');
+    }
+    _jumpTo(measureIndex);
   }
 
   /// [initialStatus] != null means it's an initial loading.
-  Future<void> _jumpTo(int index, {AnecdoteStatus? initialStatus}) async {
+  void _jumpTo(int index, {AnecdoteStatus? initialStatus}) async {
     await _currentMeasureSubscription?.cancel();
     _currentMeasureSubscription = null;
 
-    final previousIndex = currentState.index;
+    final previousIndex = _currentState.index;
 
     if (initialStatus == null && previousIndex != index) {
-      _activeRunners[previousIndex]?.stop();
+      _narratorByMeasureIndex[previousIndex]?.dispose();
     }
 
-    MeasureRunner? runner;
+    MeasureNarrator? narrator;
 
-    if (!_activeRunners.containsKey(index)) {
-      _emitState(status: AnecdoteStatus.loading, index: index);
-      runner = await _getOrLoadRunner(index);
+    if (!_narratorByMeasureIndex.containsKey(index)) {
+      narrator = _getOrLoadNarrator(index);
     } else {
-      runner = _activeRunners[index];
+      narrator = _narratorByMeasureIndex[index];
     }
 
-    if (runner == null) return; //TODO: throw
-    //TODO: is it normal to start before emitState ?
-    if (initialStatus != AnecdoteStatus.ready) {
-      runner.start();
-      _musicPlayer?.play();
-    }
-    _currentMeasureSubscription = runner.onCompleted.listen((_) {
+    if (narrator == null) return; //TODO: throw
+    _currentMeasureSubscription = narrator.onCompletedStream.listen((_) {
       next();
     });
 
     _emitState(status: initialStatus ?? AnecdoteStatus.playing, index: index);
+
+    if (initialStatus != AnecdoteStatus.ready) {
+      narrator.start();
+      _musicPlayer?.play();
+    }
+
     _performSlidingWindowMaintenance(index);
   }
 
-  Future<MeasureRunner?> _getOrLoadRunner(int index) async {
-    final anecdote = currentState.anecdote;
+  MeasureNarrator? _getOrLoadNarrator(int index) {
+    final anecdote = _currentState.anecdote;
     if (anecdote == null) throw StateError('');
-    if (index < 0 || index >= currentState.measureCount) return null;
-    final activeRunner = _activeRunners[index];
+    if (index < 0 || index >= _currentState.measureCount) return null;
+    final activeRunner = _narratorByMeasureIndex[index];
     if (activeRunner != null) return activeRunner;
-    final pendingFuture = _loadingRunners[index];
-    if (pendingFuture != null) return pendingFuture;
-    final loadingFuture = _loadRunnerInternal(index);
-    _loadingRunners[index] = loadingFuture;
-    return loadingFuture;
+    return _loadNarrator(index);
   }
 
-  Future<MeasureRunner> _loadRunnerInternal(int index) async {
-    final context = AnecdoteContext(
+  MeasureNarrator _loadNarrator(int index) {
+    final measure = _currentState.anecdote!.measures[index];
+    final narrator = MeasureNarratorImpl(
+      measure: measure,
+      captionsController: _captionsController,
       voicePlayer: _voicePlayer,
       musicPlayer: _musicPlayer,
-      captionsController: _captionsController,
     );
-    final measure = currentState.anecdote!.measures[index];
-    final runner = _runnerFactory.createRunner(context, measure);
-    try {
-      await runner.prepare();
-      _activeRunners[index] = runner;
-      return runner;
-    } catch (e) {
-      rethrow;
-    } finally {
-      _loadingRunners.remove(index);
-    }
+    return _narratorByMeasureIndex[index] = narrator;
   }
 
   void _performSlidingWindowMaintenance(int currentIndex) {
-    unawaited(_getOrLoadRunner(currentIndex + 1));
-
-    _activeRunners.removeWhere((key, runner) {
+    _getOrLoadNarrator(currentIndex + 1);
+    _narratorByMeasureIndex.removeWhere((key, narrator) {
       final shouldKeep = key >= currentIndex - 1 && key <= currentIndex + 1;
       if (!shouldKeep) {
-        runner.stop();
+        narrator.dispose();
         return true;
       }
       return false;
@@ -243,7 +231,7 @@ class AnecdoteEngineImpl implements AnecdoteEngine {
   }) {
     if (_stateSubject.isClosed) return;
     _stateSubject.add(
-      currentState.copyWith(
+      _currentState.copyWith(
         status: status,
         index: index,
         isLooping: isLooping,

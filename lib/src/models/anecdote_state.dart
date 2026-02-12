@@ -36,6 +36,8 @@ class AnecdoteState {
   /// Whether the engine is configured to loop back to index 0 upon completion.
   final bool isLooping;
 
+  //TODO: add isPlaying
+
   const AnecdoteState({
     required this.index,
     required this.status,
