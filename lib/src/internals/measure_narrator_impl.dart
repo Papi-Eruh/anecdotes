@@ -53,12 +53,14 @@ class MeasureNarratorImpl implements MeasureNarrator {
   @override
   void play() {
     _captionsController?.play();
+    _musicPlayer?.play();
     _voicePlayer?.play();
   }
 
   @override
   void pause() {
     _captionsController?.pause();
+    _musicPlayer?.pause();
     _voicePlayer?.pause();
   }
 

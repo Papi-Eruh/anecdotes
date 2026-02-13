@@ -7,8 +7,10 @@ abstract interface class AnecdoteEngine {
   Future<void> load(
     Anecdote anecdote, {
     int startIndex = 0,
-    AnecdoteStatus initialStatus = AnecdoteStatus.ready,
+    AnecdoteStatus startStatus = AnecdoteStatus.ready,
   });
+
+  void notifyReady(int measureIndex);
 
   void play();
 
