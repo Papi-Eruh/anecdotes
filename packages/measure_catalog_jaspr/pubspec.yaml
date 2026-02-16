@@ -9,6 +9,8 @@ environment:
 dependencies:
   anecdotes:
     path: ../../
+  anecdotes_jaspr:
+    path: ../anecdotes_jaspr/
   jaspr: ^0.22.2
   measure_catalog:
     path: ../measure_catalog/

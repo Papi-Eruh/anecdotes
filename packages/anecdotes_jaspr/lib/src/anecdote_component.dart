@@ -30,6 +30,12 @@ class AnecdoteComponentState extends State<AnecdoteComponent> {
       .map((status) => status == AnecdoteStatus.paused);
 
   @override
+  void initState() {
+    super.initState();
+    _engine.load(component.anecdote);
+  }
+
+  @override
   void dispose() {
     _engine.dispose();
     super.dispose();
@@ -38,30 +44,19 @@ class AnecdoteComponentState extends State<AnecdoteComponent> {
   @override
   Component build(BuildContext context) {
     return StreamBuilder(
-      stream: _engine.stateStream,
+      stream: _engine.stateStream.map((state) => state.status).distinct(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return div(classes: 'anecdote-loader', [
-            Component.text('Loading Engine...'),
-          ]);
+        final status = snapshot.data;
+
+        if (status == null) {
+          return div(classes: 'anecdote-loader', [text('Loading Engine...')]);
         }
 
-        final state = snapshot.data!;
-
-        if (state.status == AnecdoteStatus.initializing) {
+        if (status == AnecdoteStatus.initializing) {
           return div(classes: 'anecdote-initializing', [
-            Component.text('Preparing Anecdote...'),
+            text('Preparing Anecdote...'),
           ]);
         }
-
-        final currentIndex = state.measureIndex;
-        final measuresCount = state.anecdote?.measures.length ?? 0;
-
-        final indicesToRender = [
-          currentIndex - 1,
-          currentIndex,
-          currentIndex + 1,
-        ].where((int i) => i >= 0 && i < measuresCount);
 
         return div(
           classes: 'anecdote-container',
@@ -70,22 +65,62 @@ class AnecdoteComponentState extends State<AnecdoteComponent> {
             width: 100.percent,
             height: 100.percent,
             overflow: Overflow.hidden,
+            cursor: Cursor.pointer,
+          ),
+          events: events(
+            onClick: () {
+              if (status == AnecdoteStatus.playing) {
+                _engine.pause();
+              } else {
+                _engine.play();
+              }
+            },
           ),
           [
-            ...indicesToRender.map((index) {
-              final measure = state.anecdote!.measures[index];
-              return MeasureWrapperWidget(
-                isVisible: index == currentIndex,
-                measure: measure,
-                onReady: () => _engine.notifyReady(index),
-                isPausedStream: _isPausedStream,
-                child: component.registry.build(measure),
-              );
-            }),
-            if (state.captions != null && state.captions!.isNotEmpty)
-              div(classes: 'anecdote-captions', [
-                Component.text(state.captions!),
-              ]),
+            StreamBuilder(
+              stream: _engine.stateStream
+                  .map((state) => (state.measureIndex, state.anecdote))
+                  .distinct(),
+              builder: (context, snapshot) {
+                final data = snapshot.data!;
+                final (currentIndex, anecdote) = data;
+                final measuresCount = anecdote?.measures.length ?? 0;
+
+                final indicesToRender = [
+                  currentIndex - 1,
+                  currentIndex,
+                  currentIndex + 1,
+                ].where((int i) => i >= 0 && i < measuresCount);
+
+                return div(
+                  styles: Styles(width: 100.percent, height: 100.percent),
+                  [
+                    ...indicesToRender.map((index) {
+                      final measure = anecdote!.measures[index];
+                      return MeasureWrapperWidget(
+                        key: ValueKey('measure-$index'),
+                        isVisible: index == currentIndex,
+                        onReady: () => _engine.notifyReady(index),
+                        isPausedStream: _isPausedStream,
+                        child: component.registry.build(measure),
+                      );
+                    }),
+                  ],
+                );
+              },
+            ),
+            StreamBuilder(
+              stream: _engine.stateStream
+                  .map((state) => state.captions)
+                  .distinct(),
+              builder: (context, snapshot) {
+                final captions = snapshot.data;
+                if (captions == null || captions.isEmpty) {
+                  return div([]);
+                }
+                return div(classes: 'anecdote-captions', [text(captions)]);
+              },
+            ),
           ],
         );
       },
@@ -95,7 +130,6 @@ class AnecdoteComponentState extends State<AnecdoteComponent> {
 
 class MeasureWrapperWidget extends StatelessComponent {
   final bool isVisible;
-  final Measure measure;
   final VoidCallback onReady;
   final Stream<bool> isPausedStream;
   final Component child;
@@ -103,7 +137,6 @@ class MeasureWrapperWidget extends StatelessComponent {
   MeasureWrapperWidget({
     super.key,
     required this.isVisible,
-    required this.measure,
     required this.onReady,
     required this.isPausedStream,
     required this.child,
