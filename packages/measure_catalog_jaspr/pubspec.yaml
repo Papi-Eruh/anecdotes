@@ -1,0 +1,20 @@
+name: measure_catalog_jaspr
+description: A starting point for Dart libraries or applications.
+version: 1.0.0
+# repository: https://github.com/my_org/my_repo
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  anecdotes:
+    path: ../../
+  jaspr: ^0.22.2
+  measure_catalog:
+    path: ../measure_catalog/
+  web: ^1.1.1
+
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

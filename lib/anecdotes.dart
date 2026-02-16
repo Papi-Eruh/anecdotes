@@ -8,6 +8,7 @@ export 'src/api.dart';
 export 'src/audio/audio_player.dart';
 export 'src/audio/audio_source.dart';
 export 'src/audio/audio_source_visitor.dart';
+export 'src/measure_drawable_registry.dart';
 export 'src/models/anecdote.dart';
 export 'src/models/anecdote_state.dart';
 export 'src/models/caption.dart';
