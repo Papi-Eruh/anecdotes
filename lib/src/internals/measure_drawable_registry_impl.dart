@@ -3,11 +3,11 @@ import 'package:anecdotes/src/models/measure.dart';
 
 class MeasureDrawableRegistryImpl<Drawable>
     implements MeasureDrawableRegistry<Drawable> {
-  final _delegate = <Type, MeasureDrawableBuilder<Drawable>>{};
+  final _delegate = <Type, MeasureDrawableBuilder<Measure, Drawable>>{};
 
   @override
   void register<M extends Measure>(
-    MeasureDrawableBuilder<Drawable> toDrawable,
+    MeasureDrawableBuilder<M, Drawable> toDrawable,
   ) {
     _delegate[M] = (measure) {
       if (measure is! M) throw ArgumentError('Wrong register $M');
