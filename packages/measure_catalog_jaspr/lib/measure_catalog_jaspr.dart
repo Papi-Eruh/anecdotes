@@ -3,4 +3,4 @@
 /// More dartdocs go here.
 library;
 
-export 'src/rive_looping_measure_widget.dart';
+export 'src/rive_looping_measure_component.dart';
